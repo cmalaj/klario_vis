@@ -13,7 +13,7 @@ st.title("Growth Curve Visualisation Portal (CSV-compatible)")
 
 # Generate distinct colours for 96 wells
 rainbow_cmap = cm.get_cmap("gist_rainbow", 96)
-well_order = [f"{row}{col}" for row in "ABCDEFGH" for col in range(1, 13)]
+well_order = [f"{row}{col:02}" for row in "ABCDEFGH" for col in range(1, 13)]
 well_colours = {well: mcolors.to_hex(rainbow_cmap(i)) for i, well in enumerate(well_order)}
 
 uploaded_files = st.file_uploader("Upload up to 4 plate-reader CSV files", type="csv", accept_multiple_files=True)
