@@ -9,14 +9,14 @@ import matplotlib.cm as cm
 import re
 
 st.set_page_config(layout="wide")
-st.title("Growth Curve Visualisation Portal (CSV-compatible)")
+st.title("ClarioSTAR Growth Curve Visualisation Portal (CSV-compatible)")
 
 # Generate distinct colours for 96 wells
 rainbow_cmap = cm.get_cmap("gist_rainbow", 96)
 well_order = [f"{row}{col:02}" for row in "ABCDEFGH" for col in range(1, 13)]
 well_colours = {well: mcolors.to_hex(rainbow_cmap(i)) for i, well in enumerate(well_order)}
 
-uploaded_files = st.file_uploader("Upload up to 4 plate-reader CSV files", type="csv", accept_multiple_files=True)
+uploaded_files = st.file_uploader("Upload up to 4 CSV files at any one time.", type="csv", accept_multiple_files=True)
 
 # Time conversion helper
 def convert_to_minutes(label):
@@ -86,6 +86,16 @@ if uploaded_files:
         else:
             selected_cols = st.sidebar.multiselect("Choose columns (1–12):", all_cols, default=all_cols)
 
+    # Custom labels for selected wells
+    st.sidebar.subheader("Custom Well Labels")
+    custom_labels = {}
+    with st.sidebar.expander("Edit custom well labels"):
+        for row in selected_rows:
+            for col_num in selected_cols:
+                well_id = f"{row}{col_num:02}"
+                custom_label = st.text_input(f"Label for {well_id}", value=well_id, key=f"label_{well_id}")
+                custom_labels[well_id] = custom_label
+
     for idx, df in enumerate(all_data):
         plate = df["Plate"].iloc[0]
         st.subheader(f"{plate} - Time Series")
@@ -109,13 +119,15 @@ if uploaded_files:
                 continue
             row, col_num = match.groups()
             col_num = int(col_num)
+            well_id = f"{row}{col_num:02}"
             if row not in selected_rows or col_num not in selected_cols:
                 continue
-            colour = well_colours.get(col, "#CCCCCC")
+            colour = well_colours.get(well_id, "#CCCCCC")
+            label = custom_labels.get(well_id, well_id)
             fig.add_trace(go.Scatter(
                 x=df.index,
                 y=df[col],
-                name=col,
+                name=label,
                 mode='lines',
                 line=dict(color=colour)
             ))
@@ -123,7 +135,7 @@ if uploaded_files:
         fig.update_layout(
             xaxis_title="Time (minutes)",
             yaxis_title="OD600",
-            legend_title="Well ID",
+            legend_title="Well Label",
             margin=dict(l=50, r=50, t=50, b=50),
             xaxis=dict(range=[x_min, x_max]),
             yaxis=dict(range=[y_min, y_max])
