@@ -70,21 +70,21 @@ if uploaded_files:
     all_rows = list("ABCDEFGH")
     all_cols = list(range(1, 13))
 
+    # ROW selection
     st.sidebar.subheader("Rows")
-    row_col1, row_col2 = st.sidebar.columns([1, 2])
-    with row_col1:
-        if st.button("Select all rows"):
-            selected_rows = all_rows
-        else:
-            selected_rows = st.sidebar.multiselect("Choose rows (A–H):", all_rows, default=all_rows)
+    select_all_rows = st.sidebar.checkbox("Select all rows", value=True)
+    if select_all_rows:
+        selected_rows = all_rows
+    else:
+        selected_rows = st.sidebar.multiselect("Choose rows (A–H):", all_rows, default=all_rows)
 
+    # COLUMN selection
     st.sidebar.subheader("Columns")
-    col_col1, col_col2 = st.sidebar.columns([1, 2])
-    with col_col1:
-        if st.button("Select all columns"):
-            selected_cols = all_cols
-        else:
-            selected_cols = st.sidebar.multiselect("Choose columns (1–12):", all_cols, default=all_cols)
+    select_all_cols = st.sidebar.checkbox("Select all columns", value=True)
+    if select_all_cols:
+        selected_cols = all_cols
+    else:
+        selected_cols = st.sidebar.multiselect("Choose columns (1–12):", all_cols, default=all_cols)
 
     # Custom labels for selected wells
     st.sidebar.subheader("Custom Well Labels")
