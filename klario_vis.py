@@ -90,6 +90,7 @@ if uploaded_files:
     st.sidebar.subheader("Custom Well Labels")
     custom_labels = {}
     with st.sidebar.expander("Edit custom well labels"):
+        st.sidebar.markdown("✅ Label section loaded.")
         for row in selected_rows:
             for col_num in selected_cols:
                 well_id = f"{row}{col_num:02}"
