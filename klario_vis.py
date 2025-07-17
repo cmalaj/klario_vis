@@ -44,6 +44,28 @@ def parse_growth_csv(file, plate_num):
     df["Plate"] = f"Plate {plate_num}"
     return df
 
+# Sidebar for row/column selection (always show)
+st.sidebar.header("Time-Series Controls")
+all_rows = list("ABCDEFGH")
+all_cols = list(range(1, 13))
+
+# ROW selection
+st.sidebar.subheader("Rows")
+select_all_rows = st.sidebar.checkbox("Select all rows", value=True)
+if select_all_rows:
+    selected_rows = all_rows
+else:
+    selected_rows = st.sidebar.multiselect("Choose rows (A–H):", all_rows, default=all_rows)
+
+# COLUMN selection
+st.sidebar.subheader("Columns")
+select_all_cols = st.sidebar.checkbox("Select all columns", value=True)
+if select_all_cols:
+    selected_cols = all_cols
+else:
+    selected_cols = st.sidebar.multiselect("Choose columns (1–12):", all_cols, default=all_cols)
+
+# Now proceed if files are uploaded
 if uploaded_files:
     all_data = []
     all_summary = []
@@ -65,42 +87,21 @@ if uploaded_files:
         summary["Plate"] = f"Plate {i + 1}"
         all_summary.append(summary)
 
-    # Sidebar for row/column selection
-    st.sidebar.header("Time-Series Controls")
-    all_rows = list("ABCDEFGH")
-    all_cols = list(range(1, 13))
-
-    # ROW selection
-    st.sidebar.subheader("Rows")
-    select_all_rows = st.sidebar.checkbox("Select all rows", value=True)
-    if select_all_rows:
-        selected_rows = all_rows
-    else:
-        selected_rows = st.sidebar.multiselect("Choose rows (A–H):", all_rows, default=all_rows)
-
-    # COLUMN selection
-    st.sidebar.subheader("Columns")
-    select_all_cols = st.sidebar.checkbox("Select all columns", value=True)
-    if select_all_cols:
-        selected_cols = all_cols
-    else:
-        selected_cols = st.sidebar.multiselect("Choose columns (1–12):", all_cols, default=all_cols)
-
-    # Custom labels for selected wells
-    st.sidebar.subheader("Custom Well Labels")
-    custom_labels = {}
-    with st.sidebar.expander("Edit custom well labels"):
-        st.sidebar.markdown("✅ Label section loaded.")
-        for row in selected_rows:
-            for col_num in selected_cols:
-                well_id = f"{row}{col_num:02}"
-                custom_label = st.text_input(f"Label for {well_id}", value=well_id, key=f"label_{well_id}")
-                custom_labels[well_id] = custom_label
-
     for idx, df in enumerate(all_data):
         plate = df["Plate"].iloc[0]
         st.subheader(f"{plate} - Time Series")
 
+        # Custom labels specific to this plate
+        custom_labels = {}
+        with st.sidebar.expander(f"Custom Labels for {plate}"):
+            for row in selected_rows:
+                for col_num in selected_cols:
+                    well_id = f"{row}{col_num:02}"
+                    label_key = f"label_{plate}_{well_id}"
+                    custom_label = st.text_input(f"{plate} - Label for {well_id}", value=well_id, key=label_key)
+                    custom_labels[well_id] = custom_label
+
+        # Axis controls
         with st.expander(f"Adjust axis ranges for {plate}"):
             col1, col2 = st.columns(2)
             with col1:
