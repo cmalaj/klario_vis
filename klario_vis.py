@@ -120,8 +120,6 @@ if uploaded_files:
     for i, file in enumerate(uploaded_files):
         wells, labels, od_data, time_mins, time_hours = parse_growth_file(file)
         original_label_map = dict(zip(wells, labels))
-        # Store layout
-        all_layouts[plate_name] = {**original_label_map, **well_label_map}
 
         df = pd.DataFrame(od_data.T, index=time_mins, columns=wells)
         df["Plate"] = f"Plate {i + 1}"  # ✅ only metadata column
@@ -170,7 +168,7 @@ if uploaded_files:
             st.warning(f"{plate_name}: You must enter exactly 4 phages for the preset layout.")
 
         # Store layout
-        all_layouts[plate_name] = well_label_map
+        all_layouts[plate_name] = {**original_label_map, **well_label_map}
 
         if df.empty:
             st.warning(f"The file **{file.name}** could not be processed (empty or invalid data). Skipping.")
