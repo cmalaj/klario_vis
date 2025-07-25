@@ -244,8 +244,8 @@ if uploaded_files:
                 x_min_default = x_min_raw if time_unit == "Minutes" else x_min_raw / 60
                 x_max_default = x_max_raw if time_unit == "Minutes" else x_max_raw / 60
 
-                x_min = st.number_input(f"{plate} X min ({time_unit})", value=x_min_default, step=0.1, key=f"{plate}_xmin")
-                x_max = st.number_input(f"{plate} X max ({time_unit})", value=x_max_default, step=0.1, key=f"{plate}_xmax")
+                x_min = st.number_input(f"{plate} X min ({time_unit})", value=float(x_min_default), step=0.1, key=f"{plate}_xmin")
+                x_max = st.number_input(f"{plate} X max ({time_unit})", value=float(x_max_default), step=0.1, key=f"{plate}_xmax")
             with col2:
                 y_min = st.number_input(f"{plate} Y min (OD600)", value=float(df.drop(columns='Plate', errors='ignore').min().min()), step=0.1, key=f"{plate}_ymin")
                 y_max = st.number_input(f"{plate} Y max (OD600)", value=float(df.drop(columns='Plate', errors='ignore').max().max()), step=0.1, key=f"{plate}_ymax")
