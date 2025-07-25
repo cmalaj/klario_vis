@@ -449,7 +449,15 @@ with st.expander("Adjust axes for comparison plot"):
         comp_x_max = st.number_input("X max", value=float(x_max_default), step=0.1, key="comp_xmax")
 
     with col2:
-        all_values = pd.concat([df.drop(columns=["Plate"], errors="ignore") for df in all_data], axis=1)
+        # Step 1: Get union of all timepoints
+        all_indices = sorted(set().union(*(df.index for df in all_data)))
+
+        # Step 2: Reindex each df to the union and concat
+        aligned_dfs = [
+            df.drop(columns=["Plate"], errors="ignore").reindex(all_indices)
+            for df in all_data
+        ]
+        all_values = pd.concat(aligned_dfs, axis=1)
         y_min_default = all_values.min().min()
         y_max_default = all_values.max().max()
         comp_y_min = st.number_input("Y min (OD600)", value=float(y_min_default), step=0.1, key="comp_ymin")
