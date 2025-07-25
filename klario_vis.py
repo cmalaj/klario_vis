@@ -95,11 +95,7 @@ selected_rows = all_rows if select_all_rows else st.sidebar.multiselect("Choose 
 select_all_cols = st.sidebar.checkbox("Select all columns", value=True)
 selected_cols = all_cols if select_all_cols else st.sidebar.multiselect("Choose columns (1–12):", all_cols, default=all_cols)
 
-# Custom layout section
-use_autolabels = st.sidebar.checkbox("Use automated layout labels?", value=False)
-if use_autolabels:
-    strain = st.sidebar.text_input("Strain name:", value="PAO1")
-    phages = st.sidebar.text_input("Phage IDs (comma-separated, max 4):", value="P1,P2,P3,P4").split(",")
+# Remove global layout toggle — we now control layout per file directly in main UI
 
 # Main app logic
 if uploaded_files:
@@ -136,6 +132,23 @@ if uploaded_files:
             with x2:
                 y_min = st.number_input(f"{plate} Y min", value=float(df_plot.min().min()), step=0.1)
                 y_max = st.number_input(f"{plate} Y max", value=float(df_plot.max().max()), step=0.1)
+
+
+        # Per-file layout controls
+        use_autolabels = st.checkbox(f"Use auto layout for {file.name}?", key=f"autolabel_{plate}")
+        if use_autolabels:
+            strain = st.text_input(f"{plate} - Strain name", value="PAO1", key=f"strain_{plate}")
+            phage_input = st.text_input(f"{plate} - Phage IDs (comma-separated)", value="P1,P2,P3,P4", key=f"phages_{plate}")
+            phages = [p.strip() for p in phage_input.split(",") if p.strip()]
+            if len(phages) >= 4:
+                layout_df = generate_preset_layout(strain, phages)
+                layout_map = {f"{r}{int(c):02}": layout_df.loc[r, c] for r in layout_df.index for c in layout_df.columns}
+        else:
+            for row in selected_rows:
+                for col in selected_cols:
+                    well = f"{row}{col:02}"
+                    label_key = f"label_{plate}_{well}"
+                    layout_map[well] = st.text_input(f"{plate} - Label for {well}", value=well, key=label_key)
 
         # Plot individual wells
         fig = go.Figure()
