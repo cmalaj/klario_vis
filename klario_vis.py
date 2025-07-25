@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -9,7 +10,7 @@ import matplotlib.cm as cm
 import re
 
 st.set_page_config(layout="wide")
-st.title("ClarioSTAR Growth Curve Visualisation Portal (CSV-compatible)")
+st.title("ClarioSTAR Growth Curve Visualisation Portal (Enhanced)")
 
 # Generate distinct colours for 96 wells
 rainbow_cmap = cm.get_cmap("gist_rainbow", 96)
@@ -18,7 +19,7 @@ well_colours = {well: mcolors.to_hex(rainbow_cmap(i)) for i, well in enumerate(w
 
 uploaded_files = st.file_uploader("Upload up to 4 CSV files at any one time.", type="csv", accept_multiple_files=True)
 
-# Time conversion helper
+# Helper: Convert time like '1h 15 min' -> minutes
 def convert_to_minutes(label):
     match = re.match(r'(?:(\d+)\s*h)?\s*(?:(\d+)\s*min)?', label.strip())
     if match:
@@ -27,162 +28,188 @@ def convert_to_minutes(label):
         return hours * 60 + minutes
     return None
 
-# Parser for your CSV file structure
+# Helper: Convert minutes -> hh:mm
+def minutes_to_hhmm(mins):
+    h = int(mins // 60)
+    m = int(mins % 60)
+    return f"{h}:{m:02}"
+
+# Layout generator
+def generate_preset_layout(strain, phages):
+    rows = list("ABCDEFGH")
+    cols = [str(c).zfill(2) for c in range(1, 13)]
+    layout_df = pd.DataFrame("", index=rows, columns=cols)
+
+    tech_reps = ["T1", "T2"]
+    batches = ["B1", "B2", "B3"]
+
+    for row_idx, row_letter in enumerate(rows):
+        phage_id = phages[row_idx // 2]
+        tech_rep = tech_reps[row_idx % 2]
+
+        well_values = []
+        for moi in ["MOI1", "MOI0.5", "MOI0.1"]:
+            for batch in batches:
+                label = f"{phage_id}_{moi}-{strain}_{batch}-{tech_rep}"
+                well_values.append(label)
+
+        # Columns 10–12
+        extras = [
+            [phage_id, "BROTH", f"{strain}_B1"],
+            [phage_id, "VEHICLE", f"{strain}_B1"],
+            [phage_id, "PAO1", "EMPTY"],
+            [phage_id, "EMPTY", f"{strain}_B2"],
+            [phage_id, "BROTH", f"{strain}_B2"],
+            [phage_id, "VEHICLE", "EMPTY"],
+            [phage_id, "PAO1", f"{strain}_B3"],
+            [phage_id, "EMPTY", f"{strain}_B3"]
+        ]
+        well_values += extras[row_idx]
+        layout_df.loc[row_letter, :] = well_values
+
+    return layout_df
+
+# Parse CSV
 def parse_growth_csv(file, plate_num):
     lines = file.getvalue().decode('utf-8').splitlines()
     header_idx = next(i for i, line in enumerate(lines) if line.startswith("Well,Content"))
-    time_header_line = lines[header_idx + 1].split(',')[2:]  # skip 'Well' and 'Content'
-
+    time_header_line = lines[header_idx + 1].split(',')[2:]
     timepoints = [convert_to_minutes(t) for t in time_header_line]
     data_lines = lines[header_idx + 2:]
     raw_data = [row.split(',')[2:] for row in data_lines]
     well_ids = [row.split(',')[0] for row in data_lines]
-
     df_raw = pd.DataFrame(raw_data, index=well_ids, columns=timepoints).apply(pd.to_numeric, errors='coerce')
     df = df_raw.transpose()
     df.index.name = "Time"
     df["Plate"] = f"Plate {plate_num}"
     return df
 
-# Sidebar for row/column selection (always show)
-st.sidebar.header("Time-Series Controls")
+# Sidebar controls
+st.sidebar.header("Global Plot Controls")
+time_unit = st.sidebar.radio("X-axis units", options=["minutes", "hours", "hh:mm"], index=0)
+
 all_rows = list("ABCDEFGH")
 all_cols = list(range(1, 13))
-
-# ROW selection
-st.sidebar.subheader("Rows")
 select_all_rows = st.sidebar.checkbox("Select all rows", value=True)
-if select_all_rows:
-    selected_rows = all_rows
-else:
-    selected_rows = st.sidebar.multiselect("Choose rows (A–H):", all_rows, default=all_rows)
-
-# COLUMN selection
-st.sidebar.subheader("Columns")
+selected_rows = all_rows if select_all_rows else st.sidebar.multiselect("Choose rows (A–H):", all_rows, default=all_rows)
 select_all_cols = st.sidebar.checkbox("Select all columns", value=True)
-if select_all_cols:
-    selected_cols = all_cols
-else:
-    selected_cols = st.sidebar.multiselect("Choose columns (1–12):", all_cols, default=all_cols)
+selected_cols = all_cols if select_all_cols else st.sidebar.multiselect("Choose columns (1–12):", all_cols, default=all_cols)
 
-# Now proceed if files are uploaded
+# Custom layout section
+use_autolabels = st.sidebar.checkbox("Use automated layout labels?", value=False)
+if use_autolabels:
+    strain = st.sidebar.text_input("Strain name:", value="PAO1")
+    phages = st.sidebar.text_input("Phage IDs (comma-separated, max 4):", value="P1,P2,P3,P4").split(",")
+
+# Main app logic
 if uploaded_files:
-    all_data = []
-    all_summary = []
+    all_data, all_summary, all_labels = [], [], []
 
     for i, file in enumerate(uploaded_files):
         df = parse_growth_csv(file, i + 1)
         if df.empty:
-            st.warning(f"The file **{file.name}** could not be processed. Skipping.")
+            st.warning(f"{file.name} could not be parsed.")
             continue
 
-        all_data.append(df)
-
-        numeric_cols = df.columns.drop("Plate", errors="ignore")
-        summary = pd.DataFrame({
-            "Well": numeric_cols,
-            "Mean": df[numeric_cols].mean(),
-            "SD": df[numeric_cols].std()
-        }).reset_index(drop=True)
-        summary["Plate"] = f"Plate {i + 1}"
-        all_summary.append(summary)
-
-    for idx, df in enumerate(all_data):
         plate = df["Plate"].iloc[0]
         st.subheader(f"{plate} - Time Series")
+        df_plot = df.drop(columns="Plate")
 
-        # Custom labels specific to this plate
-        custom_labels = {}
-        with st.sidebar.expander(f"Custom Labels for {plate}"):
+        # Auto layout
+        layout_map = {}
+        if use_autolabels and len(phages) >= 4:
+            layout_df = generate_preset_layout(strain, phages)
+            layout_map = {f"{r}{int(c):02}": layout_df.loc[r, c] for r in layout_df.index for c in layout_df.columns}
+        else:
             for row in selected_rows:
-                for col_num in selected_cols:
-                    well_id = f"{row}{col_num:02}"
-                    label_key = f"label_{plate}_{well_id}"
-                    custom_label = st.text_input(f"{plate} - Label for {well_id}", value=well_id, key=label_key)
-                    custom_labels[well_id] = custom_label
+                for col in selected_cols:
+                    well = f"{row}{col:02}"
+                    label_key = f"label_{plate}_{well}"
+                    layout_map[well] = st.sidebar.text_input(f"{plate} - Label for {well}", value=well, key=label_key)
 
-        # Axis controls
-        with st.expander(f"Adjust axis ranges for {plate}"):
-            col1, col2 = st.columns(2)
-            with col1:
-                x_min = st.number_input(f"{plate} X min (minutes)", value=float(df.index.min()), step=1.0, key=f"{plate}_xmin")
-                x_max = st.number_input(f"{plate} X max (minutes)", value=float(df.index.max()), step=1.0, key=f"{plate}_xmax")
-            with col2:
-                y_min = st.number_input(f"{plate} Y min (OD600)", value=float(df.drop(columns='Plate').min().min()), step=0.1, key=f"{plate}_ymin")
-                y_max = st.number_input(f"{plate} Y max (OD600)", value=float(df.drop(columns='Plate').max().max()), step=0.1, key=f"{plate}_ymax")
+        # Axis settings
+        with st.expander(f"Adjust axis for {plate}"):
+            x1, x2 = st.columns(2)
+            with x1:
+                x_min = st.number_input(f"{plate} X min", value=float(df_plot.index.min()), step=1.0)
+                x_max = st.number_input(f"{plate} X max", value=float(df_plot.index.max()), step=1.0)
+            with x2:
+                y_min = st.number_input(f"{plate} Y min", value=float(df_plot.min().min()), step=0.1)
+                y_max = st.number_input(f"{plate} Y max", value=float(df_plot.max().max()), step=0.1)
 
+        # Plot individual wells
         fig = go.Figure()
-
-        for col in df.columns:
-            if col == "Plate":
-                continue
+        for col in df_plot.columns:
             match = re.match(r"([A-H])(\d{1,2})", col)
             if not match:
                 continue
             row, col_num = match.groups()
             col_num = int(col_num)
-            well_id = f"{row}{col_num:02}"
             if row not in selected_rows or col_num not in selected_cols:
                 continue
-            colour = well_colours.get(well_id, "#CCCCCC")
-            label = custom_labels.get(well_id, well_id)
-            fig.add_trace(go.Scatter(
-                x=df.index,
-                y=df[col],
-                name=label,
-                mode='lines',
-                line=dict(color=colour)
-            ))
+            colour = well_colours.get(f"{row}{col_num:02}", "#888888")
+            label = layout_map.get(f"{row}{col_num:02}", f"{row}{col_num:02}")
+            time_vals = df_plot.index
+            if time_unit == "hours":
+                time_vals = df_plot.index / 60
+            elif time_unit == "hh:mm":
+                time_vals = [minutes_to_hhmm(t) for t in df_plot.index]
+
+            fig.add_trace(go.Scatter(x=time_vals, y=df_plot[col], name=label, line=dict(color=colour)))
 
         fig.update_layout(
-            xaxis_title="Time (minutes)",
+            xaxis_title=f"Time ({time_unit})",
             yaxis_title="OD600",
             legend_title="Well Label",
-            margin=dict(l=50, r=50, t=50, b=50),
+            title=file.name,
             xaxis=dict(range=[x_min, x_max]),
             yaxis=dict(range=[y_min, y_max])
         )
-
         st.plotly_chart(fig, use_container_width=True)
 
-    # Summary heatmaps
-    metrics = ["Mean", "SD"]
-    fig, axes = plt.subplots(len(metrics), len(all_summary), figsize=(5 * len(all_summary), 5 * len(metrics)))
+        df_melted = df_plot.reset_index().melt(id_vars=["Time"], var_name="Well", value_name="OD600")
+        df_melted["Label"] = df_melted["Well"].map(layout_map)
+        all_data.append(df_melted)
+        all_summary.append(df_plot.agg(["mean", "std"], axis=1))
+        all_labels.append(layout_map)
 
-    if len(all_summary) == 1:
-        axes = np.array([[axes[0]], [axes[1]]])
+    # Comparison plot
+    st.subheader("Comparison Plot (mean ± SD)")
+    common_labels = set.intersection(*[set(m["Label"].unique()) for m in all_data])
+    selected_label = st.selectbox("Select label to compare:", sorted(common_labels))
 
-    for j, metric in enumerate(metrics):
-        for i, summary in enumerate(all_summary):
-            plate = summary["Plate"].iloc[0]
-            sub = summary[["Well", metric]]
+    fig_compare = go.Figure()
+    for i, df_m in enumerate(all_data):
+        sub = df_m[df_m["Label"] == selected_label]
+        if sub.empty:
+            continue
+        df_grp = sub.groupby("Time")["OD600"].agg(["mean", "std"]).reset_index()
+        x_vals = df_grp["Time"]
+        if time_unit == "hours":
+            x_vals = x_vals / 60
+        elif time_unit == "hh:mm":
+            x_vals = [minutes_to_hhmm(t) for t in df_grp["Time"]]
 
-            well_ids = sub["Well"].dropna().unique()
-            rows = sorted(set([w[0] for w in well_ids if re.match(r"^[A-Z]\d+$", w)]))
-            cols = sorted(set([int(re.search(r"\d+$", w).group()) for w in well_ids if re.match(r"^[A-Z]\d+$", w)]))
+        fig_compare.add_trace(go.Scatter(
+            x=x_vals,
+            y=df_grp["mean"],
+            mode="lines",
+            name=f"Plate {i+1}",
+            line=dict(width=2)
+        ))
+        fig_compare.add_trace(go.Scatter(
+            x=x_vals.tolist() + x_vals[::-1].tolist(),
+            y=(df_grp["mean"] + df_grp["std"]).tolist() + (df_grp["mean"] - df_grp["std"])[::-1].tolist(),
+            fill="toself",
+            name=f"Plate {i+1} ± SD",
+            line=dict(width=0),
+            opacity=0.3,
+            showlegend=False
+        ))
 
-            heatmap = pd.DataFrame(index=rows, columns=cols, dtype=float)
-
-            for _, row in sub.iterrows():
-                match = re.match(r"([A-Z])(\d{1,2})", row["Well"])
-                if match:
-                    r, c = match.groups()
-                    if r in heatmap.index and int(c) in heatmap.columns:
-                        heatmap.loc[r, int(c)] = row[metric]
-
-            heatmap.columns = heatmap.columns.astype(int)
-
-            sns.heatmap(
-                heatmap,
-                ax=axes[j][i],
-                cmap="rainbow_r",
-                annot=False,
-                cbar=True
-            )
-            axes[j][i].set_title(f"{plate} - {metric}")
-            axes[j][i].set_xlabel("Column")
-            axes[j][i].set_ylabel("Row")
-
-    plt.tight_layout()
-    st.subheader("Plate Summary Heatmaps")
-    st.pyplot(fig)
+    fig_compare.update_layout(
+        title=f"Comparison of {selected_label}",
+        xaxis_title=f"Time ({time_unit})",
+        yaxis_title="OD600"
+    )
+    st.plotly_chart(fig_compare, use_container_width=True)
