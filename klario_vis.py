@@ -445,15 +445,15 @@ with st.expander("Adjust axes for comparison plot"):
         all_times = pd.concat([pd.Series(df.index) for df in all_data])
         x_min_default = all_times.min() if comparison_time_unit == "Minutes" else all_times.min() / 60
         x_max_default = all_times.max() if comparison_time_unit == "Minutes" else all_times.max() / 60
-        comp_x_min = st.number_input("X min", value=x_min_default, step=0.1, key="comp_xmin")
-        comp_x_max = st.number_input("X max", value=x_max_default, step=0.1, key="comp_xmax")
+        comp_x_min = st.number_input("X min", value=float(x_min_default), step=0.1, key="comp_xmin")
+        comp_x_max = st.number_input("X max", value=float(x_max_default), step=0.1, key="comp_xmax")
 
     with col2:
         all_values = pd.concat([df.drop(columns=["Plate"], errors="ignore") for df in all_data], axis=1)
         y_min_default = all_values.min().min()
         y_max_default = all_values.max().max()
-        comp_y_min = st.number_input("Y min (OD600)", value=y_min_default, step=0.1, key="comp_ymin")
-        comp_y_max = st.number_input("Y max (OD600)", value=y_max_default, step=0.1, key="comp_ymax")
+        comp_y_min = st.number_input("Y min (OD600)", value=float(y_min_default), step=0.1, key="comp_ymin")
+        comp_y_max = st.number_input("Y max (OD600)", value=float(y_max_default), step=0.1, key="comp_ymax")
 
 # Plot if any wells are selected
 if any(selected_wells_per_plate.values()):
