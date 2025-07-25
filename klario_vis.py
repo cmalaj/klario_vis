@@ -20,7 +20,7 @@ rainbow_cmap = cm.get_cmap("gist_rainbow", 96)
 well_order = [f"{row}{col}" for row in "ABCDEFGH" for col in range(1, 13)]
 well_colours = {well: mcolors.to_hex(rainbow_cmap(i)) for i, well in enumerate(well_order)}
 
-uploaded_files = st.file_uploader("Upload ClarioSTAR CSV files", type="csv", accept_multiple_files=True)
+uploaded_files = st.file_uploader("Upload up to 4 ClarioSTAR CSV files", type="csv", accept_multiple_files=True)
 
 def time_to_minutes(t):
     h, m, s = map(int, t.split(":"))
