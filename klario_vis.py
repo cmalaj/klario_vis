@@ -20,7 +20,7 @@ rainbow_cmap = cm.get_cmap("gist_rainbow", 96)
 well_order = [f"{row}{col}" for row in "ABCDEFGH" for col in range(1, 13)]
 well_colours = {well: mcolors.to_hex(rainbow_cmap(i)) for i, well in enumerate(well_order)}
 
-uploaded_files = st.file_uploader("Upload ClarioSTAR CSV files", type="csv", accept_multiple_files=True)
+uploaded_files = st.file_uploader("Upload up to 4 ClarioSTAR .csv files", type="csv", accept_multiple_files=True)
 
 def time_to_minutes(t):
     h, m, s = map(int, t.split(":"))
@@ -30,6 +30,14 @@ def parse_growth_file(file, plate_num):
     lines = file.getvalue().decode('utf-8').splitlines()
     header_idx = next(i for i, line in enumerate(lines) if line.startswith('Well,Content'))
     time_header_line = lines[header_idx + 1].split(',')[2:]
+    def convert_to_minutes(label):
+        import re
+        match = re.match(r'(?:(\d+)\s*h)?\s*(?:(\d+)\s*min)?', label.strip())
+        if match:
+            hours = int(match.group(1)) if match.group(1) else 0
+            minutes = int(match.group(2)) if match.group(2) else 0
+            return hours * 60 + minutes
+        return None
     timepoints = [convert_to_minutes(t) for t in time_header_line]
     data_lines = lines[header_idx + 2:]
     raw_data = [row.split(',')[2:] for row in data_lines]
