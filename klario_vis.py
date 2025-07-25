@@ -123,7 +123,10 @@ if uploaded_files:
         df.insert(0, "Well", wells)
         df.insert(1, "Label", labels)
         df["Plate"] = f"Plate {i + 1}"
-        df.index = time_mins  # Set time as index
+        # Transpose OD data: rows = timepoints, columns = wells
+        df = pd.DataFrame(od_data.T, index=time_mins, columns=wells)
+        df.insert(0, "Label", labels)
+        df["Plate"] = f"Plate {i + 1}"
         plate_name = f"Plate {i + 1}"
         filename = file.name
         default_title = filename or plate_name
