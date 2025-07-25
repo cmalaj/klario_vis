@@ -20,56 +20,57 @@ rainbow_cmap = cm.get_cmap("gist_rainbow", 96)
 well_order = [f"{row}{col}" for row in "ABCDEFGH" for col in range(1, 13)]
 well_colours = {well: mcolors.to_hex(rainbow_cmap(i)) for i, well in enumerate(well_order)}
 
-uploaded_files = st.file_uploader("Upload up to 4 ClarioSTAR CSV files", type="csv", accept_multiple_files=True)
+uploaded_files = st.file_uploader("Upload up to 4 LogPhase600 .txt files", type="txt", accept_multiple_files=True)
 
 def time_to_minutes(t):
     h, m, s = map(int, t.split(":"))
     return h * 60 + m + s / 60
 
-def parse_growth_file(file, plate_num):
-    lines = file.getvalue().decode('utf-8').splitlines()
-    header_idx = next(i for i, line in enumerate(lines) if line.startswith('Well,Content'))
-    time_header_line = lines[header_idx + 1].split(',')[2:]
-    def convert_to_minutes(label):
-        import re
-        match = re.match(r'(?:(\d+)\s*h)?\s*(?:(\d+)\s*min)?', label.strip())
+def parse_growth_file(file):
+    import pandas as pd
+    import numpy as np
+    import re
+
+    # Read all lines and find the line with actual OD data header
+    lines = file.getvalue().decode("utf-8").splitlines()
+    header_line_idx = None
+    for i, line in enumerate(lines):
+        if line.startswith("Well,Content,Blank corrected"):
+            header_line_idx = i
+            break
+    if header_line_idx is None:
+        raise ValueError("Could not find OD data header.")
+
+    # Extract time header (next line after header_line_idx)
+    time_header_line = lines[header_line_idx + 1]
+    time_labels = time_header_line.split(",")[2:]  # Skip "Well" and "Content"
+
+    # Convert to both minutes and hours
+    def time_str_to_minutes(s):
+        h, m = 0, 0
+        match = re.match(r"(\d+)\s*h(?:\s*(\d+)\s*min)?", s.strip())
         if match:
-            hours = int(match.group(1)) if match.group(1) else 0
-            minutes = int(match.group(2)) if match.group(2) else 0
-            return hours * 60 + minutes
-        return None
-    timepoints = [convert_to_minutes(t) for t in time_header_line]
-    data_lines = lines[header_idx + 2:]
-    raw_data = [row.split(',')[2:] for row in data_lines]
-    well_ids = [row.split(',')[0] for row in data_lines]
-    df_raw = pd.DataFrame(raw_data, index=well_ids, columns=timepoints).apply(pd.to_numeric, errors='coerce')
-    df = df_raw.transpose()
-    df.index.name = 'Time'
-    df['Plate'] = f'Plate {plate_num}'
-    return df
+            h = int(match.group(1))
+            m = int(match.group(2)) if match.group(2) else 0
+        return h * 60 + m
 
-    header_line = next(i for i, line in enumerate(lines) if line.strip().startswith("Time"))
-    headers = lines[header_line].split("\t")
+    time_mins = [time_str_to_minutes(t) for t in time_labels]
+    time_hours = [t / 60 for t in time_mins]
 
-    data_rows = []
-    for row in lines[header_line + 1:]:
-        if not re.match(r'^\d+:\d+:\d+', row):
-            continue
-        cols = row.split("\t")
-        if len(cols) != len(headers):
-            continue
-        if sum([1 for v in cols[1:] if v.strip()]) < 5:
-            continue
-        data_rows.append(cols)
+    # Read actual OD data table
+    data_block = "\n".join(lines[header_line_idx + 2:])
+    df = pd.read_csv(pd.compat.StringIO(data_block), header=None)
 
-    df = pd.DataFrame(data_rows, columns=headers)
-    df["Time"] = df["Time"].apply(time_to_minutes)
-    for col in df.columns:
-        if col != "Time":
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-    df["Plate"] = f"Plate {plate_num}"
-    return df.set_index("Time")
+    # Drop rows with empty wells or missing labels
+    df = df.dropna(subset=[0, 1])
+    df = df[df[0].astype(str).str.match(r"^[A-H]\d+$")]
 
+    # Extract well info
+    wells = df[0].values
+    labels = df[1].values
+    od_data = df.iloc[:, 2:].replace("OVRFLW", np.nan).astype(float).values
+
+    return wells, labels, od_data, time_mins, time_hours
 def generate_preset_layout(strain, phages):
     rows = list("ABCDEFGH")
     cols = [str(c) for c in range(1, 13)]
