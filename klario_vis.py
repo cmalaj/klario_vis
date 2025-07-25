@@ -59,7 +59,7 @@ def parse_growth_file(file):
 
     # Read actual OD data table
     data_block = "\n".join(lines[header_line_idx + 2:])
-    df = pd.read_csv(pd.compat.StringIO(data_block), header=None)
+    df = pd.read_csv(StringIO(data_block), header=None)
 
     # Drop rows with empty wells or missing labels
     df = df.dropna(subset=[0, 1])
@@ -118,7 +118,12 @@ if uploaded_files:
     all_summary = []
 
     for i, file in enumerate(uploaded_files):
-        df = parse_growth_file(file, i + 1)
+        wells, labels, od_data, time_mins, time_hours = parse_growth_file(file)
+        df = pd.DataFrame(od_data, columns=[f"{i}" for i in range(len(time_mins))])
+        df.insert(0, "Well", wells)
+        df.insert(1, "Label", labels)
+        df["Plate"] = f"Plate {i + 1}"
+        df.index = time_mins  # Set time as index
         plate_name = f"Plate {i + 1}"
         filename = file.name
         default_title = filename or plate_name
@@ -174,6 +179,7 @@ if uploaded_files:
 
         numeric_cols = df.columns.drop(["Plate"], errors="ignore")
         numeric_cols = [col for col in numeric_cols if not col.startswith("T°")]
+        numeric_cols = [col for col in df.columns if col not in ["Well", "Label", "Plate"]]
 
         summary = pd.DataFrame({
             "Well": numeric_cols,
