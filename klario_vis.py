@@ -493,10 +493,11 @@ if uploaded_files:
                     # Reindex all to common time grid
                     df_profiles = []
 
-                    for y in all_profiles:
-                        # Create a temporary series
-                        s = pd.Series(y, index=x_vals)
-                        s = s.reindex(time_grid)  # align to common time grid
+                    for y_vals, original_x in zip(all_profiles, [df.index if comparison_time_unit == "Minutes" else df.index / 60 for df in all_data if well_id in df.columns]):
+                        if len(original_x) != len(y_vals):
+                            continue  # Skip mismatched data
+                        s = pd.Series(y_vals, index=original_x)
+                        s = s.reindex(time_grid)  # Align to common time grid (with NaNs)
                         df_profiles.append(s)
 
                     df_combined = pd.concat(df_profiles, axis=1)
