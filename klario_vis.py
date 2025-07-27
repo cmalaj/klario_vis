@@ -17,7 +17,7 @@ st.title("ClarioSTAR Visualisation Portal v. 2.0")
 
 # Generate 96 distinct colours from the rainbow colormap
 rainbow_cmap = cm.get_cmap("gist_rainbow", 96)
-well_order = [f"{row}{col}" for row in "ABCDEFGH" for col in range(1, 13)]
+well_order = [f"{row}{col}".replace("0", "") for row in "ABCDEFGH" for col in range(1, 13)]
 well_colours = {well: mcolors.to_hex(rainbow_cmap(i)) for i, well in enumerate(well_order)}
 
 uploaded_files = st.file_uploader("Upload one or more ClarioSTAR CSV files", type=["csv", "CSV"], accept_multiple_files=True)
@@ -30,6 +30,7 @@ def parse_growth_file(file):
     import pandas as pd
     import numpy as np
     import re
+    from io import StringIO
 
     # Read all lines and find the line with actual OD data header
     lines = file.getvalue().decode("utf-8").splitlines()
@@ -63,7 +64,11 @@ def parse_growth_file(file):
 
     # Drop rows with empty wells or missing labels
     df = df.dropna(subset=[0, 1])
-    df = df[df[0].astype(str).str.match(r"^[A-H]\d+$")]
+
+    # ✅ Normalise well labels (e.g. A01 → A1)
+    df[0] = df[0].astype(str).str.upper()
+    df[0] = df[0].str.replace(r"^([A-H])0?(\d)$", r"\1\2", regex=True)
+    df = df[df[0].str.match(r"^[A-H]\d{1,2}$")]
 
     # Extract well info
     wells = df[0].values
@@ -71,6 +76,7 @@ def parse_growth_file(file):
     od_data = df.iloc[:, 2:].replace("OVRFLW", np.nan).astype(float).values
 
     return wells, labels, od_data, time_mins, time_hours
+
 def generate_preset_layout(strain, phages):
     rows = list("ABCDEFGH")
     cols = [str(c) for c in range(1, 13)]
@@ -263,9 +269,8 @@ if uploaded_files:
         if apply_blank and blank_well in df.columns:
             df_corrected = df.copy()
             blank_values = df[blank_well]
-            for col in df.columns:
-                for col in df.filter(regex=r"^[A-H]\d{1,2}$").columns:
-                    df_corrected[col] = df[col] - blank_values
+            well_cols = df.filter(regex=r"^[A-H]\d{1,2}$").columns
+            df_corrected[well_cols] = df[well_cols].subtract(blank_values, axis=0)
             df = df_corrected
 
 
