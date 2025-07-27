@@ -490,9 +490,18 @@ if uploaded_files:
                         all_profiles.append(y_vals.values)
 
                 if all_profiles:
-                    y_array = np.array(all_profiles)
-                    mean_vals = np.nanmean(y_array, axis=0)
-                    std_vals = np.nanstd(y_array, axis=0)
+                    # Reindex all to common time grid
+                    df_profiles = []
+
+                    for y in all_profiles:
+                        # Create a temporary series
+                        s = pd.Series(y, index=x_vals)
+                        s = s.reindex(time_grid)  # align to common time grid
+                        df_profiles.append(s)
+
+                    df_combined = pd.concat(df_profiles, axis=1)
+                    mean_vals = df_combined.mean(axis=1).values
+                    std_vals = df_combined.std(axis=1).values
 
                     colour = well_colours.get(well_id, "#CCCCCC")
 
