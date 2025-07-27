@@ -455,7 +455,7 @@ if uploaded_files:
             # Step 2: Reindex each df to the union and concat
             aligned_dfs = [
                 df.drop(columns=["Plate"], errors="ignore")
-                .loc[~df.index.duplicated(keep="first")]  # remove duplicate indices
+                .groupby(df.index).mean()
                 .reindex(all_indices)
                 for df in all_data
             ]
