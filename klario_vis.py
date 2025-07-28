@@ -396,16 +396,7 @@ if uploaded_files:
 
 
     # ========================
-    # === Build label options once data is available ===
-"""    if "shared_label_options" not in st.session_state:
-        label_set = set()
-        for df in all_data:
-            plate = df["Plate"].iloc[0]
-            for col in df.columns:
-                if re.match(r"^[A-H]\d{1,2}$", col):
-                    label = st.session_state.get(f"{plate}_{col}_label", col)
-                    label_set.add(label)
-        st.session_state["shared_label_options"] = sorted(label_set)"""
+
     
     # === Optional comparison plot section ===
     st.markdown("---")
