@@ -485,6 +485,13 @@ if uploaded_files:
     if any(selected_wells_per_plate.values()):
         fig = go.Figure()
 
+        # === DASH STYLE MAP ===
+        dash_styles = ["solid", "dash", "dot", "dashdot", "longdash", "longdashdot"]
+        plate_to_dash = {
+            df["Plate"].iloc[0]: dash_styles[i % len(dash_styles)]
+            for i, df in enumerate(all_data)
+        }
+
         if use_shared_selection and show_mean_with_ribbon:
             # For each shared well, collect matching data across plates
             for well_id in shared_wells:
@@ -527,7 +534,7 @@ if uploaded_files:
                         y=mean_vals,
                         mode='lines',
                         name=f"{well_id} – Mean",
-                        line=dict(color=colour, width=2),
+                        line=dict(color=colour, width=2, dash=plate_to_dash.get(df["Plate"].iloc[0], "solid")),
                         legendgroup=well_id,         # 🔗 Link to the same group
                         showlegend=True
                     ))
@@ -565,7 +572,7 @@ if uploaded_files:
                         y=df[well_id],
                         name=label,
                         mode='lines',
-                        line=dict(color=colour)
+                        line=dict(color=colour, width=2, dash=plate_to_dash.get(df["Plate"].iloc[0], "solid"))
                     ))
 
         fig.update_layout(
