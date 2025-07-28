@@ -35,10 +35,10 @@ def parse_growth_file(file):
     # Read all lines
     lines = file.getvalue().decode("utf-8").splitlines()
 
-    # Find line index where OD data starts (flexibly detect the header)
+    # Find header line where the actual OD data starts
     header_line_idx = None
     for i, line in enumerate(lines):
-        if "Well" in line and "Blank corrected" in line:
+        if line.startswith("Well,Content,"):
             header_line_idx = i
             break
     if header_line_idx is None:
