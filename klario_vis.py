@@ -428,7 +428,7 @@ if uploaded_files:
         help="Applies the same well locations or sample labels across all uploaded plates."
     )
 
-    st.subheader("Select samples to compare")
+    st.subheader("Select sample labels to compare" if use_label_based_selection else "Select wells to compare")
 
     # Safe default
     show_mean_with_ribbon = False
