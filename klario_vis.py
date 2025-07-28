@@ -129,6 +129,8 @@ if uploaded_files:
         original_label_map = dict(zip(wells, labels))
 
         df = pd.DataFrame(od_data.T, index=time_mins, columns=wells)
+        df.index.name = "Time (min)"
+        df = df[~df.index.duplicated(keep="first")]  # Drop duplicate timepoints if any
         df["Plate"] = f"Plate {i + 1}"  # ✅ only metadata column
         plate_name = f"Plate {i + 1}"
         filename = file.name
