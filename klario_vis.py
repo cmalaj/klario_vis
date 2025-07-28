@@ -140,6 +140,11 @@ if uploaded_files:
             value=default_title,
             key=f"title_{plate_name}"
         )
+        # ✅ Store it for retrieval later
+        all_layouts[plate_name] = {
+            "well_map": {**original_label_map, **well_label_map},
+            "custom_title": custom_title
+        }
 
 
         st.markdown(f"---\n### {plate_name} Layout Settings")
@@ -223,6 +228,11 @@ if uploaded_files:
     for idx, df in enumerate(all_data):
         plate = df["Plate"].iloc[0]
         st.subheader(f"{plate} - Time Series")
+
+        # ✅ Retrieve stored title
+        plate_info = all_layouts.get(plate, {})
+        layout_map = plate_info.get("well_map", {})
+        custom_title = plate_info.get("custom_title", plate)
 
         # Custom well labels for this plate only
         custom_labels = {}
