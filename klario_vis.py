@@ -411,6 +411,7 @@ if uploaded_files:
     st.markdown("---")
     show_comparison = st.checkbox("Enable Comparison Plot", value=False)
 
+    shared_wells = []  # Always define this early to avoid NameError
     if show_comparison:
         st.header("Comparison Plot")
 
