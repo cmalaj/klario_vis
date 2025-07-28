@@ -140,13 +140,6 @@ if uploaded_files:
             value=default_title,
             key=f"title_{plate_name}"
         )
-        if plate_name in all_layouts:
-            all_layouts[plate_name]["well_map"] = {**original_label_map, **well_label_map}
-        else:
-            all_layouts[plate_name] = {
-                "custom_title": custom_title,
-                "well_map": {**original_label_map, **well_label_map}
-            }
 
 
         st.markdown(f"---\n### {plate_name} Layout Settings")
