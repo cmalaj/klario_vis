@@ -517,38 +517,6 @@ if uploaded_files:
                     if selected:
                         selected_wells_per_plate[plate] = selected
 
-        else:
-            if use_shared_selection:
-                shared_wells = st.multiselect(
-                    "Select wells (applies to all plates)",
-                    options=[f"{r}{c}" for r in "ABCDEFGH" for c in range(1, 13)],
-                    key="shared_well_selector"
-                )
-
-                show_mean_with_ribbon = st.checkbox(
-                    "Show average ± SD for selected wells",
-                    value=True,
-                    help="Plots the average profile across all plates for each selected well with a shaded SD band"
-                )
-
-                for df in all_data:
-                    plate = df["Plate"].iloc[0]
-                    valid = [w for w in shared_wells if w in df.columns]
-                    if valid:
-                        selected_wells_per_plate[plate] = valid
-
-            else:
-                # Per-plate location-based
-                for df in all_data:
-                    plate = df["Plate"].iloc[0]
-                    wells = [col for col in df.columns if re.match(r"^[A-H]\d{1,2}$", col)]
-                    selected = st.multiselect(
-                        f"{plate} – Select wells to compare",
-                        options=wells,
-                        key=f"compare_select_{plate}"
-                    )
-                    if selected:
-                        selected_wells_per_plate[plate] = selected
         # Axis range control
         with st.expander("Adjust axes for comparison plot"):
             col1, col2 = st.columns(2)
