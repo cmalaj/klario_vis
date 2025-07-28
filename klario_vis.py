@@ -439,7 +439,7 @@ if uploaded_files:
                         label = st.session_state.get(f"{plate}_{col}_label", col)
                         label_set.add(label)
             st.session_state["shared_label_options"] = sorted(label_set)
-            st.experimental_rerun()
+            st.rerun()
 
         st.subheader("Select sample labels to compare" if use_label_based_selection else "Select wells to compare")
 
