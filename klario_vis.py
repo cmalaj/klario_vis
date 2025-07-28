@@ -396,6 +396,7 @@ if uploaded_files:
 
 
     # ========================
+    # ========================
     # Comparison Plot Section
     # ========================
     st.markdown("---")
@@ -417,43 +418,94 @@ if uploaded_files:
     # ✅ NEW: Option to select same wells across all plates
     use_shared_selection = st.checkbox("Use same wells across all plates?", value=False)
 
+    # ✅ NEW: Option to use label-based selection
+    use_label_based_selection = st.checkbox(
+        "Aggregate and compare samples by label (group technical replicates)?",
+        value=False,
+        help="If enabled, wells with the same label (e.g., phage_strain_batch) will be grouped together."
+    )
+
     # Store selected wells per plate
     selected_wells_per_plate = {}
 
     st.subheader("Select wells to compare")
 
     if use_shared_selection:
-        # ✅ Shared well selector
-        shared_wells = st.multiselect(
-            "Select wells (applies to all plates)",
-            options=[f"{row}{col}" for row in "ABCDEFGH" for col in range(1, 13)],
-            help="These wells will be plotted from all uploaded plates.",
-            key="shared_well_selector"
-        )
-        show_mean_with_ribbon = st.checkbox(
-            "Show average ± SD for selected wells",
-            value=True,
-            help="Plots the average profile across all plates for each selected well with a shaded SD band"
-        )
-        # Assign selected wells to each plate
-        for df in all_data:
-            plate = df["Plate"].iloc[0]
-            wells_in_plate = [col for col in df.columns if re.match(r"^[A-H]\d{1,2}$", col)]
-            valid_shared = [w for w in shared_wells if w in wells_in_plate]
-            if valid_shared:
-                selected_wells_per_plate[plate] = valid_shared
+        if use_label_based_selection:
+            # Label-based selection
+            shared_labels = set()
+            for df in all_data:
+                plate = df["Plate"].iloc[0]
+                for col in df.columns:
+                    if re.match(r"^[A-H]\d{1,2}$", col):
+                        custom_key = f"{plate}_{col}_label"
+                        lbl = st.session_state.get(custom_key, col)
+                        shared_labels.add(lbl)
+            shared_labels = sorted(shared_labels)
+
+            selected_labels = st.multiselect(
+                "Select sample labels (applies to all plates)",
+                options=shared_labels,
+                help="Samples with the same label across plates will be averaged."
+            )
+
+            for df in all_data:
+                plate = df["Plate"].iloc[0]
+                selected = []
+                for col in df.columns:
+                    if re.match(r"^[A-H]\d{1,2}$", col):
+                        custom_key = f"{plate}_{col}_label"
+                        lbl = st.session_state.get(custom_key, col)
+                        if lbl in selected_labels:
+                            selected.append(col)
+                if selected:
+                    selected_wells_per_plate[plate] = selected
+
+        else:
+            # Shared well selector by well ID
+            shared_wells = st.multiselect(
+                "Select wells (applies to all plates)",
+                options=[f"{row}{col}" for row in "ABCDEFGH" for col in range(1, 13)],
+                help="These wells will be plotted from all uploaded plates.",
+                key="shared_well_selector"
+            )
+            show_mean_with_ribbon = st.checkbox(
+                "Show average ± SD for selected wells",
+                value=True,
+                help="Plots the average profile across all plates for each selected well with a shaded SD band"
+            )
+            for df in all_data:
+                plate = df["Plate"].iloc[0]
+                wells_in_plate = [col for col in df.columns if re.match(r"^[A-H]\d{1,2}$", col)]
+                valid_shared = [w for w in shared_wells if w in wells_in_plate]
+                if valid_shared:
+                    selected_wells_per_plate[plate] = valid_shared
 
     else:
-        # 🔁 Per-plate multiselects
+        # Per-plate selection
         for df in all_data:
             plate = df["Plate"].iloc[0]
             wells = [col for col in df.columns if re.match(r"^[A-H]\d{1,2}$", col)]
 
-            selected = st.multiselect(
-                f"{plate} – Select wells to compare",
-                options=wells,
-                key=f"compare_select_{plate}"
-            )
+            if use_label_based_selection:
+                label_to_wells = {}
+                for well in wells:
+                    custom_key = f"{plate}_{well}_label"
+                    lbl = st.session_state.get(custom_key, well)
+                    label_to_wells.setdefault(lbl, []).append(well)
+
+                selected_labels = st.multiselect(
+                    f"{plate} – Select sample labels",
+                    options=sorted(label_to_wells.keys()),
+                    key=f"compare_labels_{plate}"
+                )
+                selected = [w for l in selected_labels for w in label_to_wells[l]]
+            else:
+                selected = st.multiselect(
+                    f"{plate} – Select wells to compare",
+                    options=wells,
+                    key=f"compare_select_{plate}"
+                )
 
             if selected:
                 selected_wells_per_plate[plate] = selected
