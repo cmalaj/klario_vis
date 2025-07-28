@@ -493,6 +493,56 @@ if uploaded_files:
         }
 
         if use_shared_selection and show_mean_with_ribbon:
+            import re
+            for plate_name, well_list in selected_wells_per_plate.items():
+                df = next((d for d in all_data if d["Plate"].iloc[0] == plate_name), None)
+                if df is None:
+                    continue
+
+                dash_style = plate_to_dash.get(plate_name, "solid")
+
+                # Group wells by technical replicate label (remove trailing -T1/-T2 if present)
+                label_groups = {}
+                for well_id in well_list:
+                    if well_id not in df.columns:
+                        continue
+                    custom_key = f"{plate_name}_{well_id}_label"
+                    label = st.session_state.get(custom_key, f"{well_id}")
+                    base_label = re.sub(r"-T\d$", "", label)  # Strip trailing tech replicate flag
+                    label_groups.setdefault(base_label, []).append(well_id)
+
+                for group_label, group_wells in label_groups.items():
+                    time_grid = df.index if comparison_time_unit == "Minutes" else df.index / 60
+                    values = df[group_wells].values  # shape: time x replicates
+                    mean_vals = np.nanmean(values, axis=1)
+                    std_vals = np.nanstd(values, axis=1)
+
+                    colour = well_colours.get(group_wells[0], "#CCCCCC")
+                    rgba = mcolors.to_rgba(colour, alpha=0.2)
+                    fillcolor = f"rgba({int(rgba[0]*255)}, {int(rgba[1]*255)}, {int(rgba[2]*255)}, {rgba[3]})"
+
+                    # Plot mean
+                    fig.add_trace(go.Scatter(
+                        x=time_grid,
+                        y=mean_vals,
+                        mode='lines',
+                        name=f"{group_label} ({plate_name})",
+                        line=dict(color=colour, width=2, dash=dash_style),
+                        legendgroup=f"{plate_name}_{group_label}",
+                        showlegend=True
+                    ))
+
+                    # Plot SD ribbon
+                    fig.add_trace(go.Scatter(
+                        x=np.concatenate([time_grid, time_grid[::-1]]),
+                        y=np.concatenate([mean_vals + std_vals, (mean_vals - std_vals)[::-1]]),
+                        fill='toself',
+                        fillcolor=fillcolor,
+                        line=dict(color='rgba(255,255,255,0)'),
+                        hoverinfo="skip",
+                        showlegend=False,
+                        legendgroup=f"{plate_name}_{group_label}"
+                    ))
             # For each shared well, collect matching data across plates
             for well_id in shared_wells:
                 time_grid = None
