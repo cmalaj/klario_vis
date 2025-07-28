@@ -397,7 +397,7 @@ if uploaded_files:
 
     # ========================
     # === Build label options once data is available ===
-    if "shared_label_options" not in st.session_state:
+"""    if "shared_label_options" not in st.session_state:
         label_set = set()
         for df in all_data:
             plate = df["Plate"].iloc[0]
@@ -405,7 +405,7 @@ if uploaded_files:
                 if re.match(r"^[A-H]\d{1,2}$", col):
                     label = st.session_state.get(f"{plate}_{col}_label", col)
                     label_set.add(label)
-        st.session_state["shared_label_options"] = sorted(label_set)
+        st.session_state["shared_label_options"] = sorted(label_set)"""
     
     # === Optional comparison plot section ===
     st.markdown("---")
@@ -445,6 +445,20 @@ if uploaded_files:
 
         selected_wells_per_plate = {}
         show_mean_with_ribbon = use_label_based_selection and use_shared_selection
+        # === Dynamically rebuild shared_label_options if label mode is newly enabled ===
+        if use_label_based_selection and not st.session_state.get("shared_label_options_built", False):
+            label_set = set()
+            for df in all_data:
+                plate = df["Plate"].iloc[0]
+                for col in df.columns:
+                    if re.match(r"^[A-H]\d{1,2}$", col):
+                        label = st.session_state.get(f"{plate}_{col}_label", col)
+                        label_set.add(label)
+            st.session_state["shared_label_options"] = sorted(label_set)
+            st.session_state["shared_label_options_built"] = True
+            st.rerun()
+        elif not use_label_based_selection:
+            st.session_state["shared_label_options_built"] = False
 
         if use_label_based_selection:
             shared_labels = st.session_state.get("shared_label_options", [])
