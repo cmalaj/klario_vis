@@ -428,47 +428,39 @@ if uploaded_files:
         help="Applies the same well locations or sample labels across all uploaded plates."
     )
 
+    # === Dynamic heading
     st.subheader("Select sample labels to compare" if use_label_based_selection else "Select wells to compare")
 
-    # Safe default
-    show_mean_with_ribbon = False
+    # Initialise selection dictionary
     selected_wells_per_plate = {}
-    shared_labels = []
-    shared_wells = []
 
     if use_label_based_selection:
+        # LABEL-BASED SELECTION ==================================
         if use_shared_selection:
-            show_mean_with_ribbon = st.checkbox(
-                "Show average ± SD for selected sample labels",
-                value=True,
-                help="Plots the average profile across all plates for each selected sample with a shaded SD band"
-            )
+            # 🔁 Shared label-based selection
+            global_labels = set()
+            label_to_wells_per_plate = {}
 
-            # 🧠 Build global list of sample labels
-            label_set = set()
             for df in all_data:
                 plate = df["Plate"].iloc[0]
+                label_to_wells = {}
                 for col in df.columns:
                     if re.match(r"^[A-H]\d{1,2}$", col):
                         label = st.session_state.get(f"{plate}_{col}_label", col)
-                        label_set.add(label)
-            shared_labels = sorted(label_set)
+                        global_labels.add(label)
+                        label_to_wells.setdefault(label, []).append(col)
+                label_to_wells_per_plate[plate] = label_to_wells
 
+            shared_labels = sorted(global_labels)
             selected_labels = st.multiselect(
                 "Select sample labels (applies to all plates)",
                 options=shared_labels,
                 key="shared_label_selector"
             )
 
-            # 🔄 Assign selected labels to each plate
-            for df in all_data:
-                plate = df["Plate"].iloc[0]
-                selected = []
-                for col in df.columns:
-                    if re.match(r"^[A-H]\d{1,2}$", col):
-                        label = st.session_state.get(f"{plate}_{col}_label", col)
-                        if label in selected_labels:
-                            selected.append(col)
+            # Map selected labels back to wells per plate
+            for plate, label_to_wells in label_to_wells_per_plate.items():
+                selected = [w for lbl in selected_labels for w in label_to_wells.get(lbl, [])]
                 if selected:
                     selected_wells_per_plate[plate] = selected
 
@@ -478,7 +470,6 @@ if uploaded_files:
                 plate = df["Plate"].iloc[0]
                 wells = [col for col in df.columns if re.match(r"^[A-H]\d{1,2}$", col)]
 
-                # Build label-to-well mapping
                 label_to_wells = {}
                 for well in wells:
                     label = st.session_state.get(f"{plate}_{well}_label", well)
@@ -495,7 +486,7 @@ if uploaded_files:
                     selected_wells_per_plate[plate] = selected
 
     else:
-        # === Location-based selection
+        # LOCATION-BASED SELECTION ==================================
         if use_shared_selection:
             shared_wells = st.multiselect(
                 "Select wells (applies to all plates)",
@@ -526,7 +517,6 @@ if uploaded_files:
                 )
                 if selected:
                     selected_wells_per_plate[plate] = selected
-
     # Axis range control
     with st.expander("Adjust axes for comparison plot"):
         col1, col2 = st.columns(2)
