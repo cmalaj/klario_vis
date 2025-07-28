@@ -418,7 +418,8 @@ if uploaded_files:
 
         use_label_based_selection = st.checkbox(
             "Aggregate and compare samples by label (group technical replicates)?",
-            value=False,
+            value=st.session_state.get("use_label_toggle", False),
+            key="use_label_toggle",
             help="If enabled, wells with the same label (e.g., phage_strain_batch) will be grouped together."
         )
 
@@ -428,11 +429,8 @@ if uploaded_files:
             help="Applies the same well locations or sample labels across all uploaded plates."
         )
 
-        st.subheader("Select sample labels to compare" if use_label_based_selection else "Select wells to compare")
-
-        selected_wells_per_plate = {}
-
-        if use_label_based_selection:
+        # Build sample label list if user just enabled label mode
+        if use_label_based_selection and "shared_label_options" not in st.session_state:
             label_set = set()
             for df in all_data:
                 plate = df["Plate"].iloc[0]
@@ -440,8 +438,16 @@ if uploaded_files:
                     if re.match(r"^[A-H]\d{1,2}$", col):
                         label = st.session_state.get(f"{plate}_{col}_label", col)
                         label_set.add(label)
+            st.session_state["shared_label_options"] = sorted(label_set)
+            st.experimental_rerun()
 
-            shared_labels = sorted(label_set)
+        st.subheader("Select sample labels to compare" if use_label_based_selection else "Select wells to compare")
+
+        selected_wells_per_plate = {}
+        show_mean_with_ribbon = use_label_based_selection and use_shared_selection
+
+        if use_label_based_selection:
+            shared_labels = st.session_state.get("shared_label_options", [])
 
             if use_shared_selection:
                 selected_labels = st.multiselect(
@@ -449,7 +455,6 @@ if uploaded_files:
                     options=shared_labels,
                     key="shared_label_selector"
                 )
-                # Map labels back to wells
                 for df in all_data:
                     plate = df["Plate"].iloc[0]
                     selected = []
@@ -460,6 +465,7 @@ if uploaded_files:
                                 selected.append(col)
                     if selected:
                         selected_wells_per_plate[plate] = selected
+
             else:
                 for df in all_data:
                     plate = df["Plate"].iloc[0]
@@ -476,6 +482,38 @@ if uploaded_files:
                     )
 
                     selected = [w for lbl in selected_labels for w in label_to_wells.get(lbl, [])]
+                    if selected:
+                        selected_wells_per_plate[plate] = selected
+
+        else:
+            if use_shared_selection:
+                shared_wells = st.multiselect(
+                    "Select wells (applies to all plates)",
+                    options=[f"{r}{c}" for r in "ABCDEFGH" for c in range(1, 13)],
+                    key="shared_well_selector"
+                )
+
+                show_mean_with_ribbon = st.checkbox(
+                    "Show average ± SD for selected wells",
+                    value=True,
+                    help="Plots the average profile across all plates for each selected well with a shaded SD band"
+                )
+
+                for df in all_data:
+                    plate = df["Plate"].iloc[0]
+                    valid = [w for w in shared_wells if w in df.columns]
+                    if valid:
+                        selected_wells_per_plate[plate] = valid
+
+            else:
+                for df in all_data:
+                    plate = df["Plate"].iloc[0]
+                    wells = [col for col in df.columns if re.match(r"^[A-H]\d{1,2}$", col)]
+                    selected = st.multiselect(
+                        f"{plate} – Select wells to compare",
+                        options=wells,
+                        key=f"compare_select_{plate}"
+                    )
                     if selected:
                         selected_wells_per_plate[plate] = selected
 
