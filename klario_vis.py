@@ -402,7 +402,7 @@ if uploaded_files:
     st.markdown("---")
     show_comparison = st.checkbox("Enable Comparison Plot", value=False)
 
-    shared_wells = []  # Always define this early to avoid NameError
+    shared_wells = []  # Always define early
     if show_comparison:
         st.header("Comparison Plot")
 
@@ -426,6 +426,25 @@ if uploaded_files:
             help="If enabled, wells with the same label (e.g., phage_strain_batch) will be grouped together."
         )
 
+        # Track toggle change for label-based selection
+        if "last_label_toggle_state" not in st.session_state:
+            st.session_state["last_label_toggle_state"] = False
+
+        if use_label_based_selection and not st.session_state["last_label_toggle_state"]:
+            # Build new label list
+            label_set = set()
+            for df in all_data:
+                plate = df["Plate"].iloc[0]
+                for col in df.columns:
+                    if re.match(r"^[A-H]\d{1,2}$", col):
+                        label = st.session_state.get(f"{plate}_{col}_label", col)
+                        label_set.add(label)
+            st.session_state["shared_label_options"] = sorted(label_set)
+            st.session_state["last_label_toggle_state"] = True
+            st.rerun()
+        elif not use_label_based_selection:
+            st.session_state["last_label_toggle_state"] = False
+
         use_shared_selection = st.checkbox(
             "Use same selections across all plates?",
             value=False,
@@ -436,20 +455,6 @@ if uploaded_files:
 
         selected_wells_per_plate = {}
         show_mean_with_ribbon = use_label_based_selection and use_shared_selection
-        # === Dynamically rebuild shared_label_options if label mode is newly enabled ===
-        if use_label_based_selection and not st.session_state.get("shared_label_options_built", False):
-            label_set = set()
-            for df in all_data:
-                plate = df["Plate"].iloc[0]
-                for col in df.columns:
-                    if re.match(r"^[A-H]\d{1,2}$", col):
-                        label = st.session_state.get(f"{plate}_{col}_label", col)
-                        label_set.add(label)
-            st.session_state["shared_label_options"] = sorted(label_set)
-            st.session_state["shared_label_options_built"] = True
-            st.rerun()
-        elif not use_label_based_selection:
-            st.session_state["shared_label_options_built"] = False
 
         if use_label_based_selection:
             shared_labels = st.session_state.get("shared_label_options", [])
