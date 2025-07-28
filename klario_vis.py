@@ -222,6 +222,15 @@ if uploaded_files:
     else:
         selected_cols = st.sidebar.multiselect("Choose columns (1–12):", all_cols, default=all_cols, key="col_select")
 
+    # === Always build per-well labels early ===
+    for df in all_data:
+        plate = df["Plate"].iloc[0]
+        for col in df.columns:
+            if re.match(r"^[A-H]\d{1,2}$", col):
+                label_key = f"{plate}_{col}_label"
+                if label_key not in st.session_state:
+                    st.session_state[label_key] = col  # Default to well name
+
     # Per-plate visualisation
     for idx, df in enumerate(all_data):
         plate = df["Plate"].iloc[0]
@@ -395,6 +404,17 @@ if uploaded_files:
         st.plotly_chart(fig, use_container_width=True)
 
 
+    def rebuild_shared_labels():
+        label_set = set()
+        for df in all_data:
+            plate = df["Plate"].iloc[0]
+            for col in df.columns:
+                if re.match(r"^[A-H]\d{1,2}$", col):
+                    label = st.session_state.get(f"{plate}_{col}_label", col)
+                    label_set.add(label)
+        st.session_state["shared_label_options"] = sorted(label_set)
+        st.session_state["build_labels_requested"] = False
+
     # === Optional comparison plot section ===
     st.markdown("---")
     show_comparison = st.checkbox("Enable Comparison Plot", value=False)
@@ -440,15 +460,7 @@ if uploaded_files:
 
         # === Build shared_label_options if requested ===
         if st.session_state.get("build_labels_requested", False):
-            label_set = set()
-            for df in all_data:
-                plate = df["Plate"].iloc[0]
-                for col in df.columns:
-                    if re.match(r"^[A-H]\d{1,2}$", col):
-                        label = st.session_state.get(f"{plate}_{col}_label", col)
-                        label_set.add(label)
-            st.session_state["shared_label_options"] = sorted(label_set)
-            st.session_state["build_labels_requested"] = False  # prevent rerun loop
+            rebuild_shared_labels()
 
         use_shared_selection = st.checkbox(
             "Use same selections across all plates?",
