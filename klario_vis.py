@@ -395,14 +395,11 @@ if uploaded_files:
         st.plotly_chart(fig, use_container_width=True)
 
 
-    # ========================
-
-    
     # === Optional comparison plot section ===
     st.markdown("---")
     show_comparison = st.checkbox("Enable Comparison Plot", value=False)
 
-    shared_wells = []  # Always define early
+    shared_wells = []  # Always define early to avoid NameError
     if show_comparison:
         st.header("Comparison Plot")
 
@@ -426,12 +423,23 @@ if uploaded_files:
             help="If enabled, wells with the same label (e.g., phage_strain_batch) will be grouped together."
         )
 
-        # Track toggle change for label-based selection
+        # === Initialise session tracking ===
         if "last_label_toggle_state" not in st.session_state:
             st.session_state["last_label_toggle_state"] = False
+        if "build_labels_requested" not in st.session_state:
+            st.session_state["build_labels_requested"] = False
 
+        # === Detect toggle transition (False → True) ===
         if use_label_based_selection and not st.session_state["last_label_toggle_state"]:
-            # Build new label list
+            st.session_state["build_labels_requested"] = True
+            st.session_state["last_label_toggle_state"] = True
+            st.rerun()
+        elif not use_label_based_selection:
+            st.session_state["last_label_toggle_state"] = False
+            st.session_state["build_labels_requested"] = False
+
+        # === Build shared_label_options if requested ===
+        if st.session_state.get("build_labels_requested", False):
             label_set = set()
             for df in all_data:
                 plate = df["Plate"].iloc[0]
@@ -440,10 +448,7 @@ if uploaded_files:
                         label = st.session_state.get(f"{plate}_{col}_label", col)
                         label_set.add(label)
             st.session_state["shared_label_options"] = sorted(label_set)
-            st.session_state["last_label_toggle_state"] = True
-            st.rerun()
-        elif not use_label_based_selection:
-            st.session_state["last_label_toggle_state"] = False
+            st.session_state["build_labels_requested"] = False  # prevent rerun loop
 
         use_shared_selection = st.checkbox(
             "Use same selections across all plates?",
@@ -456,6 +461,7 @@ if uploaded_files:
         selected_wells_per_plate = {}
         show_mean_with_ribbon = use_label_based_selection and use_shared_selection
 
+        # === LABEL-BASED SELECTION ===
         if use_label_based_selection:
             shared_labels = st.session_state.get("shared_label_options", [])
 
@@ -495,6 +501,7 @@ if uploaded_files:
                     if selected:
                         selected_wells_per_plate[plate] = selected
 
+        # === WELL-BASED SELECTION ===
         else:
             if use_shared_selection:
                 shared_wells = st.multiselect(
