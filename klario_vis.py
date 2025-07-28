@@ -32,21 +32,23 @@ def parse_growth_file(file):
     import re
     from io import StringIO
 
-    # Read all lines and find the line with actual OD data header
+    # Read all lines
     lines = file.getvalue().decode("utf-8").splitlines()
+
+    # Find line index where OD data starts (flexibly detect the header)
     header_line_idx = None
     for i, line in enumerate(lines):
-        if line.startswith("Well,Content,Blank corrected"):
+        if "Well" in line and "Blank corrected" in line:
             header_line_idx = i
             break
     if header_line_idx is None:
         raise ValueError("Could not find OD data header.")
 
-    # Extract time header (next line after header_line_idx)
+    # Extract time header
     time_header_line = lines[header_line_idx + 1]
     time_labels = time_header_line.split(",")[2:]  # Skip "Well" and "Content"
 
-    # Convert to both minutes and hours
+    # Convert time labels to minutes and hours
     def time_str_to_minutes(s):
         h, m = 0, 0
         match = re.match(r"(\d+)\s*h(?:\s*(\d+)\s*min)?", s.strip())
@@ -58,11 +60,11 @@ def parse_growth_file(file):
     time_mins = [time_str_to_minutes(t) for t in time_labels]
     time_hours = [t / 60 for t in time_mins]
 
-    # Read actual OD data table
+    # Read OD data into DataFrame
     data_block = "\n".join(lines[header_line_idx + 2:])
     df = pd.read_csv(StringIO(data_block), header=None)
 
-    # Drop rows with empty wells or missing labels
+    # Drop rows with empty wells or labels
     df = df.dropna(subset=[0, 1])
 
     # ✅ Normalise well labels (e.g. A01 → A1)
@@ -70,13 +72,12 @@ def parse_growth_file(file):
     df[0] = df[0].str.replace(r"^([A-H])0?(\d)$", r"\1\2", regex=True)
     df = df[df[0].str.match(r"^[A-H]\d{1,2}$")]
 
-    # Extract well info
+    # Extract well data
     wells = df[0].values
     labels = df[1].values
     od_data = df.iloc[:, 2:].replace("OVRFLW", np.nan).astype(float).values
 
     return wells, labels, od_data, time_mins, time_hours
-
 def generate_preset_layout(strain, phages):
     rows = list("ABCDEFGH")
     cols = [str(c) for c in range(1, 13)]
