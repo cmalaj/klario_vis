@@ -177,7 +177,10 @@ if uploaded_files:
             st.warning(f"{plate_name}: You must enter exactly 4 phages for the preset layout.")
 
         # Store layout
-        all_layouts[plate_name] = {**original_label_map, **well_label_map}
+        all_layouts[plate_name] = {
+            "custom_title": custom_title,
+            "well_map": {**original_label_map, **well_label_map}
+        }
 
         if df.empty:
             st.warning(f"The file **{file.name}** could not be processed (empty or invalid data). Skipping.")
