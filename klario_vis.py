@@ -99,19 +99,19 @@ def generate_preset_layout(strain, phages):
 
         # Columns 10–12 (specials)
         if row_idx == 0:
-            well_values += [phage_id, "BROTH", f"{strain}_B1"]
+            well_values += [phage_id, "EMPTY", f"{strain}_B1"]
         elif row_idx == 1:
-            well_values += [phage_id, "VEHICLE", f"{strain}_B1"]
+            well_values += [phage_id, "EMPTY", f"{strain}_B1"]
         elif row_idx == 2:
-            well_values += [phage_id, "PAO1", "EMPTY"]
+            well_values += [phage_id, "EMPTY", "EMPTY"]
         elif row_idx == 3:
             well_values += [phage_id, "EMPTY", f"{strain}_B2"]
         elif row_idx == 4:
-            well_values += [phage_id, "BROTH", f"{strain}_B2"]
+            well_values += [phage_id, "EMPTY", f"{strain}_B2"]
         elif row_idx == 5:
-            well_values += [phage_id, "VEHICLE", "EMPTY"]
+            well_values += [phage_id, "EMPTY", "EMPTY"]
         elif row_idx == 6:
-            well_values += [phage_id, "PAO1", f"{strain}_B3"]
+            well_values += [phage_id, "EMPTY", f"{strain}_B3"]
         elif row_idx == 7:
             well_values += [phage_id, "EMPTY", f"{strain}_B3"]
 
