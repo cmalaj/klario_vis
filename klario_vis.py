@@ -408,6 +408,11 @@ if uploaded_files:
         horizontal=True,
         key="comparison_time_unit"
     )
+    use_different_linestyles = st.checkbox(
+        "Differentiate files using line styles?",
+        value=True,
+        help="Applies solid, dashed, dotted, etc. line styles to distinguish files"
+    )
 
     # ✅ NEW: Option to select same wells across all plates
     use_shared_selection = st.checkbox("Use same wells across all plates?", value=False)
@@ -490,6 +495,9 @@ if uploaded_files:
         plate_to_dash = {
             df["Plate"].iloc[0]: dash_styles[i % len(dash_styles)]
             for i, df in enumerate(all_data)
+        } if use_different_linestyles else {
+            df["Plate"].iloc[0]: "solid"
+            for df in all_data
         }
 
         if use_shared_selection and show_mean_with_ribbon:
