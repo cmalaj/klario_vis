@@ -427,11 +427,19 @@ if show_comparison:
                 well_pool.add(col)
 
     if compare_by == "Custom label":
-        selection = st.multiselect(
-            "Select custom labels to compare across plates",
-            options=sorted(label_pool),
-            key="compare_label_selector"
-        )
+        if group_replicates:
+            base_labels = {re.sub(r"-T\d$", "", lbl) for lbl in label_pool}
+            selection = st.multiselect(
+                "Select sample labels to compare across plates",
+                options=sorted(base_labels),
+                key="compare_label_selector"
+            )
+        else:
+            selection = st.multiselect(
+                "Select sample labels to compare across plates",
+                options=sorted(label_pool),
+                key="compare_label_selector"
+            )
     else:
         selection = st.multiselect(
             "Select wells to compare across plates",
