@@ -395,14 +395,5 @@ if uploaded_files:
         st.plotly_chart(fig, use_container_width=True)
 
 
-    def rebuild_shared_labels():
-        label_set = set()
-        for df in all_data:
-            plate = df["Plate"].iloc[0]
-            for col in df.columns:
-                if re.match(r"^[A-H]\d{1,2}$", col):
-                    label = st.session_state.get(f"{plate}_{col}_label", col)
-                    label_set.add(label)
-        st.session_state["shared_label_options"] = sorted(label_set)
-        st.session_state["build_labels_requested"] = False
+
 
