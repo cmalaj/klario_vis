@@ -454,6 +454,37 @@ if show_comparison:
             options=sorted(well_pool),
             key="compare_well_selector"
         )
+    
+    with st.expander("Adjust axis ranges for comparison plot"):
+        col1, col2 = st.columns(2)
+        with col1:
+            all_timepoints = np.concatenate([df.index.values for df in all_data])
+            x_min_raw = all_timepoints.min()
+            x_max_raw = all_timepoints.max()
+            x_min_default = x_min_raw if time_unit_compare == "Minutes" else x_min_raw / 60
+            x_max_default = x_max_raw if time_unit_compare == "Minutes" else x_max_raw / 60
+
+            x_min = st.number_input("X min", value=float(x_min_default), step=0.1, key="comp_xmin")
+            x_max = st.number_input("X max", value=float(x_max_default), step=0.1, key="comp_xmax")
+        with col2:
+            # Precompute reasonable y-limits from all selected wells
+            all_y_values = []
+            for df in all_data:
+                numeric_cols = df.columns.drop(["Plate"], errors="ignore")
+                for col in numeric_cols:
+                    if re.match(r"^[A-H]\d{1,2}$", col):
+                        all_y_values.append(df[col].values)
+            if all_y_values:
+                all_y_array = np.concatenate(all_y_values)
+                y_min_default = float(np.nanmin(all_y_array))
+                y_max_default = float(np.nanmax(all_y_array))
+            else:
+                y_min_default = 0.0
+                y_max_default = 1.5
+
+            y_min = st.number_input("Y min (OD600)", value=y_min_default, step=0.1, key="comp_ymin")
+            y_max = st.number_input("Y max (OD600)", value=y_max_default, step=0.1, key="comp_ymax")
+    
     fig = go.Figure()
 
     for df in all_data:
@@ -505,9 +536,12 @@ if show_comparison:
             ))
 
     fig.update_layout(
-        title="Comparison Plot Across Plates",
+        title="Comparison Plot",
         xaxis_title=f"Time ({time_unit_compare})",
         yaxis_title="OD600",
-        margin=dict(l=40, r=40, t=60, b=40)
+        legend_title="Sample",
+        margin=dict(l=50, r=50, t=50, b=50),
+        xaxis=dict(range=[x_min, x_max]),
+        yaxis=dict(range=[y_min, y_max])
     )
     st.plotly_chart(fig, use_container_width=True)
