@@ -403,7 +403,7 @@ show_comparison = st.checkbox("Enable Comparison Plot", value=False)
 if show_comparison:
     compare_by = st.radio(
         "Compare by:",
-        options=["Well location", "Custom label"],
+        options=["Well location", "Custom label", "Manual selection"],
         horizontal=True
     )
 
@@ -448,12 +448,32 @@ if show_comparison:
                 options=sorted(label_pool),
                 key="compare_label_selector"
             )
-    else:
+    elif compare_by == "Well location":
         selection = st.multiselect(
             "Select wells to compare across plates",
             options=sorted(well_pool),
             key="compare_well_selector"
         )
+    elif compare_by == "Manual selection":
+        manual_selection = []
+        st.markdown("**Manually select specific wells or labels from each file:**")
+        for df in all_data:
+            plate = df["Plate"].iloc[0]
+            layout_map = all_layouts.get(plate, {}).get("well_map", {})
+
+            st.markdown(f"**{plate}**")
+            cols_in_plate = [col for col in df.columns if re.match(r"^[A-H]\d{1,2}$", col)]
+            well_options = []
+            for col in cols_in_plate:
+                label = st.session_state.get(f"{plate}_{col}_label", layout_map.get(col, col))
+                well_options.append(f"{plate}::{col}::{label}")
+
+            selected = st.multiselect(
+                f"Select wells or labels from {plate}",
+                options=well_options,
+                key=f"manual_select_{plate}"
+            )
+            manual_selection.extend(selected)
     
     with st.expander("Adjust axis ranges for comparison plot"):
         col1, col2 = st.columns(2)
@@ -494,15 +514,24 @@ if show_comparison:
         matched = {}
 
         for col in df.columns:
-            if re.match(r"^[A-H]\d{1,2}$", col):
-                label = st.session_state.get(f"{plate}_{col}_label", layout_map.get(col, col))
+            if not re.match(r"^[A-H]\d{1,2}$", col):
+                continue
 
-                if compare_by == "Well location" and col in selection:
-                    matched.setdefault(col, []).append(col)
-                elif compare_by == "Custom label":
-                    base_label = re.sub(r"-T\d$", "", label) if group_replicates else label
-                    if base_label in selection:
-                        matched.setdefault(base_label, []).append(col)
+            label = st.session_state.get(f"{plate}_{col}_label", layout_map.get(col, col))
+
+            if compare_by == "Well location" and col in selection:
+                matched.setdefault(f"{plate}::{col}", []).append(col)
+
+            elif compare_by == "Custom label":
+                base_label = re.sub(r"-T\d$", "", label) if group_replicates else label
+                if base_label in selection:
+                    matched.setdefault(f"{plate}::{base_label}", []).append(col)
+
+            elif compare_by == "Manual selection":
+                for item in manual_selection:
+                    p, w, l = item.split("::")
+                    if p == plate and (w == col or l == label):
+                        matched.setdefault(f"{plate}::{l}", []).append(col)
 
         for name, cols in matched.items():
             if not cols:
