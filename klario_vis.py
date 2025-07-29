@@ -505,9 +505,10 @@ if show_comparison:
             y_min = st.number_input("Y min (OD600)", value=y_min_default, step=0.1, key="comp_ymin")
             y_max = st.number_input("Y max (OD600)", value=y_max_default, step=0.1, key="comp_ymax")
     
+    dash_styles = ["solid", "dash", "dot", "dashdot", "longdash", "longdashdot"]
     fig = go.Figure()
 
-    for df in all_data:
+    for plate_idx, df in enumerate(all_data):
         plate = df["Plate"].iloc[0]
         layout_map = all_layouts.get(plate, {}).get("well_map", {})
 
@@ -550,7 +551,7 @@ if show_comparison:
                 y=mean_vals,
                 mode='lines',
                 name=f"{plate} – {name}",
-                line=dict(color=colour),
+                line=dict(color=colour, dash=dash_styles[plate_idx % len(dash_styles)]),
                 legendgroup=name
             ))
             fig.add_trace(go.Scatter(
