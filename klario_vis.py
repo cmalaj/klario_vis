@@ -417,6 +417,14 @@ if show_comparison:
     label_pool = set()
     well_pool = set()
 
+    # Optional: Toggle for x-axis units
+    time_unit_compare = st.radio(
+        "X-axis time unit for comparison plot",
+        options=["Minutes", "Hours"],
+        horizontal=True,
+        key="time_unit_compare"
+    )
+
     for df in all_data:
         plate = df["Plate"].iloc[0]
         layout_map = all_layouts.get(plate, {}).get("well_map", {})
@@ -469,7 +477,7 @@ if show_comparison:
             if not cols:
                 continue
             colour = well_colours.get(cols[0], "#888888")
-            x_vals = df.index
+            x_vals = df.index if time_unit_compare == "Minutes" else df.index / 60
             values = df[cols].values
             mean_vals = np.nanmean(values, axis=1)
             std_vals = np.nanstd(values, axis=1)
@@ -498,7 +506,7 @@ if show_comparison:
 
     fig.update_layout(
         title="Comparison Plot Across Plates",
-        xaxis_title="Time (min)",
+        xaxis_title=f"Time ({time_unit_compare})",
         yaxis_title="OD600",
         margin=dict(l=40, r=40, t=60, b=40)
     )
