@@ -242,7 +242,6 @@ if uploaded_files:
                     default_label = layout_map.get(well_id, well_id)
                     label_key = f"{plate}_{well_id}_label"
                     label = st.text_input(f"{plate} - Label for {well_id}", value=default_label, key=label_key)
-                    st.session_state[label_key] = label
                     custom_labels[well_id] = label
 
         # Time unit toggle
