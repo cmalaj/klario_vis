@@ -415,7 +415,7 @@ if uploaded_files:
         st.session_state["shared_label_options"] = sorted(label_set)
         st.session_state["build_labels_requested"] = False
 
-    # === Optional comparison plot section ===
+"""    # === Optional comparison plot section ===
     st.markdown("---")
     show_comparison = st.checkbox("Enable Comparison Plot", value=False)
 
@@ -731,4 +731,4 @@ if uploaded_files:
                 yaxis=dict(range=[comp_y_min, comp_y_max])
             )
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)"""
