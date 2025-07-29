@@ -234,7 +234,7 @@ if uploaded_files:
 
         # Custom well labels for this plate only
         custom_labels = {}
-        layout_map = all_layouts.get(plate, {})
+        layout_map = all_layouts.get(plate, {}).get("well_map", {})
         with st.sidebar.expander(f"Custom Labels for {plate}"):
             for row in selected_rows:
                 for col_num in selected_cols:
