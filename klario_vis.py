@@ -395,5 +395,103 @@ if uploaded_files:
         st.plotly_chart(fig, use_container_width=True)
 
 
+st.markdown("---")
+st.header("Across-File Comparison")
 
+show_comparison = st.checkbox("Enable Comparison Plot", value=False)
 
+if show_comparison:
+    compare_by = st.radio(
+        "Compare by:",
+        options=["Well location", "Custom label"],
+        horizontal=True
+    )
+
+    group_replicates = False
+    if compare_by == "Custom label":
+        group_replicates = st.checkbox(
+            "Group technical replicates (same base label)?",
+            value=True,
+            help="Strips -T1/-T2 etc. and aggregates the matching profiles"
+        )
+    label_pool = set()
+    well_pool = set()
+
+    for df in all_data:
+        plate = df["Plate"].iloc[0]
+        layout_map = all_layouts.get(plate, {}).get("well_map", {})
+        for col in df.columns:
+            if re.match(r"^[A-H]\d{1,2}$", col):
+                label = st.session_state.get(f"{plate}_{col}_label", col)
+                label_pool.add(label)
+                well_pool.add(col)
+
+    if compare_by == "Custom label":
+        selection = st.multiselect(
+            "Select custom labels to compare across plates",
+            options=sorted(label_pool),
+            key="compare_label_selector"
+        )
+    else:
+        selection = st.multiselect(
+            "Select wells to compare across plates",
+            options=sorted(well_pool),
+            key="compare_well_selector"
+        )
+    fig = go.Figure()
+
+    for df in all_data:
+        plate = df["Plate"].iloc[0]
+        layout_map = all_layouts.get(plate, {}).get("well_map", {})
+
+        matched = {}
+
+        for col in df.columns:
+            if re.match(r"^[A-H]\d{1,2}$", col):
+                label = st.session_state.get(f"{plate}_{col}_label", layout_map.get(col, col))
+
+                if compare_by == "Well location" and col in selection:
+                    matched.setdefault(col, []).append(col)
+                elif compare_by == "Custom label":
+                    base_label = re.sub(r"-T\d$", "", label) if group_replicates else label
+                    if base_label in selection:
+                        matched.setdefault(base_label, []).append(col)
+
+        for name, cols in matched.items():
+            if not cols:
+                continue
+            colour = well_colours.get(cols[0], "#888888")
+            x_vals = df.index
+            values = df[cols].values
+            mean_vals = np.nanmean(values, axis=1)
+            std_vals = np.nanstd(values, axis=1)
+
+            rgba = mcolors.to_rgba(colour, alpha=0.2)
+            fillcolor = f"rgba({int(rgba[0]*255)}, {int(rgba[1]*255)}, {int(rgba[2]*255)}, {rgba[3]})"
+
+            fig.add_trace(go.Scatter(
+                x=x_vals,
+                y=mean_vals,
+                mode='lines',
+                name=f"{plate} – {name}",
+                line=dict(color=colour),
+                legendgroup=name
+            ))
+            fig.add_trace(go.Scatter(
+                x=np.concatenate([x_vals, x_vals[::-1]]),
+                y=np.concatenate([mean_vals + std_vals, (mean_vals - std_vals)[::-1]]),
+                fill='toself',
+                fillcolor=fillcolor,
+                line=dict(color='rgba(255,255,255,0)'),
+                showlegend=False,
+                hoverinfo="skip",
+                legendgroup=name
+            ))
+
+    fig.update_layout(
+        title="Comparison Plot Across Plates",
+        xaxis_title="Time (min)",
+        yaxis_title="OD600",
+        margin=dict(l=40, r=40, t=60, b=40)
+    )
+    st.plotly_chart(fig, use_container_width=True)
