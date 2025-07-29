@@ -222,15 +222,6 @@ if uploaded_files:
     else:
         selected_cols = st.sidebar.multiselect("Choose columns (1–12):", all_cols, default=all_cols, key="col_select")
 
-    # === Always build per-well labels early ===
-    for df in all_data:
-        plate = df["Plate"].iloc[0]
-        for col in df.columns:
-            if re.match(r"^[A-H]\d{1,2}$", col):
-                label_key = f"{plate}_{col}_label"
-                if label_key not in st.session_state:
-                    st.session_state[label_key] = col  # Default to well name
-
     # Per-plate visualisation
     for idx, df in enumerate(all_data):
         plate = df["Plate"].iloc[0]
