@@ -515,51 +515,98 @@ if show_thresh_analysis:
                 delta_auc_grid.loc[row, col] = delta_auc
 
             delta_auc_grid = delta_auc_grid.apply(pd.to_numeric)
-            # Determine vmin and vmax from grid
             vmin = delta_auc_grid.min().min()
             vmax = delta_auc_grid.max().max()
             vcenter = 0.0
 
-            # Ensure correct ordering for TwoSlopeNorm
             if vmin < vcenter < vmax:
                 norm = mcolors.TwoSlopeNorm(vcenter=vcenter, vmin=vmin, vmax=vmax)
             else:
-                # Fall back to regular Normalize if center isn't between vmin and vmax
                 norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
 
             cmap = cm.get_cmap("coolwarm_r")
 
             st.subheader(f"{plate} – ΔAUC Well Grid (up to {threshold_to_use}×)")
 
-            for row in list("ABCDEFGH"):
-                cols = st.columns(12, gap="small")
-                for i, col_num in enumerate(range(1, 13)):
-                    well_id = f"{row}{col_num}"
-                    delta = delta_auc_grid.loc[row, str(col_num)]
-                    if pd.isna(delta):
-                        cols[i].markdown(f"<div style='height:36px;'></div>", unsafe_allow_html=True)
-                        continue
-                    colour = mcolors.to_hex(cmap(norm(delta)))
-                    delta_formatted = f"{delta:+.3f}"
-                    cols[i].markdown(
-                        f"""
-                        <div style="
-                            background-color: {colour};
-                            border: 1px solid #444;
-                            border-radius: 3px;
-                            height: 36px;
-                            line-height: 1.2;
-                            text-align: center;
-                            font-size: 11px;
-                            font-weight: bold;
-                            color: black;
-                            padding-top: 2px;
-                        ">
-                            {well_id}<br><span style='font-weight: normal'>{delta_formatted}</span>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+            # Track selected wells per plate
+            session_key = f"selected_wells_{plate}_{idx}"
+            if session_key not in st.session_state:
+                st.session_state[session_key] = []
+            selected_wells = st.session_state[session_key]
+
+            # Scoped CSS for checkboxes
+            with st.container():
+                st.markdown("""
+                <style>
+                div[data-testid="well-checkbox-wrapper"] div[data-testid="stCheckbox"] {
+                    margin-top: -38px;
+                    margin-bottom: 0px;
+                    height: 0px;
+                    display: flex;
+                    align-items: flex-start;
+                    justify-content: center;
+                    z-index: 3;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+
+                for row in list("ABCDEFGH"):
+                    cols = st.columns(12, gap="small")
+                    for i, col_num in enumerate(range(1, 13)):
+                        well_id = f"{row}{col_num}"
+                        delta = delta_auc_grid.loc[row, str(col_num)]
+
+                        if pd.isna(delta):
+                            cols[i].markdown(f"<div style='height:36px;'></div>", unsafe_allow_html=True)
+                            continue
+
+                        colour = mcolors.to_hex(cmap(norm(delta)))
+                        is_selected = well_id in selected_wells
+                        border_style = "3px solid black" if is_selected else "1px solid #444"
+                        checkbox_key = f"cb_{plate}_{well_id}_{idx}"
+                        delta_formatted = f"{delta:+.3f}"
+
+                        with cols[i]:
+                            st.markdown(f"<div data-testid='well-checkbox-wrapper'>", unsafe_allow_html=True)
+
+                            st.markdown(
+                                f"""
+                                <div style="
+                                    background-color: {colour};
+                                    border: {border_style};
+                                    border-radius: 3px;
+                                    height: 36px;
+                                    line-height: 1.2;
+                                    text-align: center;
+                                    font-size: 11px;
+                                    font-weight: bold;
+                                    color: black;
+                                    padding-top: 2px;
+                                ">
+                                    {well_id}<br><span style='font-weight: normal'>{delta_formatted}</span>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
+                            checked = st.checkbox(" ", key=checkbox_key, value=is_selected, help=well_id, label_visibility="hidden")
+                            st.markdown("</div>", unsafe_allow_html=True)
+
+                            if checked and well_id not in selected_wells:
+                                selected_wells.append(well_id)
+                            elif not checked and well_id in selected_wells:
+                                selected_wells.remove(well_id)
+
+            # Plot selected individual wells on top of control
+            for well in selected_wells:
+                if well in df.columns:
+                    fig.add_trace(go.Scatter(
+                        x=time_hours,
+                        y=df[well],
+                        name=f"Well {well}",
+                        mode="lines",
+                        line=dict(dash="dot", width=2)
+                    ))
 
         st.plotly_chart(fig, use_container_width=True)
 
