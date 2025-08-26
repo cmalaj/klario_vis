@@ -436,7 +436,8 @@ if show_thresh_analysis:
         offset = mean_vals.iloc[0] - baseline_shift
 
         mean_vals = mean_vals - offset
-        df = df - offset
+        # Apply the offset only to well columns (A1–H12)
+        df[candidate_wells] = df[candidate_wells] - offset
 
         baseline = mean_vals.iloc[0]
 
