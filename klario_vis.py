@@ -398,11 +398,10 @@ if uploaded_files:
 # ----------------------
 # Bacterial Growth Threshold Analysis
 # ----------------------
+st.markdown("---")
+st.header("Bacterial Growth Threshold Analysis")
 show_thresh_analysis = st.checkbox("Enable Threshold Analysis", value=False)
-
 if show_thresh_analysis:
-    st.markdown("---")
-    st.header("Growth Threshold Analysis")
 
     thresholds = [1000, 100, 250, 500, 2000, 3000, 5000, 7500, 10000]
 
@@ -508,7 +507,18 @@ if show_thresh_analysis:
                 delta_auc_grid.loc[row, col] = delta_auc
 
             delta_auc_grid = delta_auc_grid.apply(pd.to_numeric)
-            norm = mcolors.TwoSlopeNorm(vcenter=0, vmin=delta_auc_grid.min().min(), vmax=delta_auc_grid.max().max())
+            # Determine vmin and vmax from grid
+            vmin = delta_auc_grid.min().min()
+            vmax = delta_auc_grid.max().max()
+            vcenter = 0.0
+
+            # Ensure correct ordering for TwoSlopeNorm
+            if vmin < vcenter < vmax:
+                norm = mcolors.TwoSlopeNorm(vcenter=vcenter, vmin=vmin, vmax=vmax)
+            else:
+                # Fall back to regular Normalize if center isn't between vmin and vmax
+                norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+                
             cmap = cm.get_cmap("coolwarm_r")
 
             st.subheader(f"{plate} – ΔAUC Well Grid (up to {threshold_to_use}×)")
