@@ -436,7 +436,7 @@ if show_thresh_analysis:
         offset = mean_vals.iloc[0] - baseline_shift
 
         mean_vals = mean_vals - offset
-        df = df.subtract(offset, axis=0)
+        df = df - offset
 
         baseline = mean_vals.iloc[0]
 
