@@ -431,6 +431,13 @@ if show_thresh_analysis:
             continue
 
         mean_vals = df[selected_positions].mean(axis=1)
+        # Baseline-adjust mean curve and all individual curves
+        baseline_shift = 0.0001
+        offset = mean_vals.iloc[0] - baseline_shift
+
+        mean_vals = mean_vals - offset
+        df = df.subtract(offset, axis=0)
+
         baseline = mean_vals.iloc[0]
 
         st.subheader(f"{plate} – Select Growth Threshold for AUC Integration")
@@ -518,7 +525,7 @@ if show_thresh_analysis:
             else:
                 # Fall back to regular Normalize if center isn't between vmin and vmax
                 norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
-                
+
             cmap = cm.get_cmap("coolwarm_r")
 
             st.subheader(f"{plate} – ΔAUC Well Grid (up to {threshold_to_use}×)")
