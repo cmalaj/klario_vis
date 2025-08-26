@@ -575,3 +575,150 @@ if show_comparison:
         yaxis=dict(range=[y_min, y_max])
     )
     st.plotly_chart(fig, use_container_width=True)
+
+    # ----------------------
+# Bacterial Growth Threshold Analysis
+# ----------------------
+st.markdown("---")
+st.header("Growth Threshold Analysis")
+
+thresholds = [1000, 100, 250, 500, 2000, 3000, 5000, 7500, 10000]
+
+for idx, df in enumerate(all_data):
+    plate = df["Plate"].iloc[0]
+    st.subheader(f"{plate} – AUC Grid Analysis")
+
+    # Get time axis
+    time_vals = df.index.values
+    time_hours = time_vals / 60
+
+    # Identify candidate wells (standard 96-well IDs)
+    candidate_wells = [col for col in df.columns if re.fullmatch(r"[A-H]1[0-2]?|[A-H][1-9]", col)]
+
+    preferred_default_wells = ["A12", "B12", "D12", "E12", "G12", "H12"]
+    default = [w for w in preferred_default_wells if w in candidate_wells]
+
+    selected_positions = st.multiselect(
+        f"Choose control well positions (e.g. A12, B11) for {plate}",
+        options=candidate_wells,
+        default=default,
+        key=f"ctrl_wells_{plate}"
+    )
+
+    if not selected_positions:
+        st.warning(f"No control well positions selected for {plate}. Skipping.")
+        continue
+
+    mean_vals = df[selected_positions].mean(axis=1)
+    baseline = mean_vals.iloc[0]
+
+    st.subheader(f"{plate} – Select Growth Threshold for AUC Integration")
+    threshold_to_use = st.selectbox(
+        f"Select threshold (× growth) for {plate}",
+        thresholds,
+        index=0,
+        key=f"threshold_selector_{plate}"
+    )
+
+    # Threshold logic
+    thresh_val = baseline * threshold_to_use
+    cross_idx = np.argmax(mean_vals.values >= thresh_val)
+    cross_time = time_hours[cross_idx] if cross_idx < len(time_hours) else None
+
+    # --- Plot mean growth curve with CI ---
+    fig = go.Figure()
+    std_vals = df[selected_positions].std(axis=1)
+    upper_bound = mean_vals + std_vals
+    lower_bound = mean_vals - std_vals
+
+    fig.add_trace(go.Scatter(
+        x=time_hours,
+        y=mean_vals,
+        name="Mean Control Growth",
+        line=dict(color="blue", width=3),
+    ))
+    fig.add_trace(go.Scatter(
+        x=time_hours,
+        y=lower_bound,
+        line=dict(color="rgba(0,0,255,0)"),
+        showlegend=False,
+        hoverinfo='skip',
+    ))
+    fig.add_trace(go.Scatter(
+        x=time_hours,
+        y=upper_bound,
+        fill='tonexty',
+        fillcolor='rgba(0,0,255,0.2)',
+        line=dict(color="rgba(0,0,255,0)"),
+        name="±1 SD",
+        hoverinfo='skip',
+    ))
+
+    if cross_time is not None:
+        fig.add_shape(
+            type="line",
+            x0=cross_time, x1=cross_time,
+            y0=0, y1=mean_vals.max() * 1.1,
+            line=dict(dash="dash", color="red")
+        )
+        fig.add_trace(go.Scatter(
+            x=[cross_time], y=[thresh_val],
+            mode="markers+text",
+            marker=dict(color="red", size=6),
+            text=[f"{threshold_to_use}×"],
+            textposition="top center",
+            showlegend=False
+        ))
+
+    # --- Compute ΔAUC grid ---
+    if cross_time is not None:
+        valid_mask = time_hours <= cross_time
+        control_auc = np.trapz(mean_vals[valid_mask], time_hours[valid_mask])
+
+        delta_auc_grid = pd.DataFrame(index=list("ABCDEFGH"), columns=[str(i) for i in range(1, 13)])
+        for well in candidate_wells:
+            row, col = well[0], well[1:]
+            if well not in df.columns or row not in delta_auc_grid.index or col not in delta_auc_grid.columns:
+                continue
+            curve = df[well]
+            well_auc = np.trapz(curve[valid_mask], time_hours[valid_mask])
+            delta_auc = well_auc - control_auc
+            delta_auc_grid.loc[row, col] = delta_auc
+
+        delta_auc_grid = delta_auc_grid.apply(pd.to_numeric)
+        norm = mcolors.TwoSlopeNorm(vcenter=0, vmin=delta_auc_grid.min().min(), vmax=delta_auc_grid.max().max())
+        cmap = cm.get_cmap("coolwarm_r")
+
+        st.subheader(f"{plate} – ΔAUC Well Grid (up to {threshold_to_use}×)")
+
+        for row in list("ABCDEFGH"):
+            cols = st.columns(12, gap="small")
+            for i, col_num in enumerate(range(1, 13)):
+                well_id = f"{row}{col_num}"
+                delta = delta_auc_grid.loc[row, str(col_num)]
+                if pd.isna(delta):
+                    cols[i].markdown(f"<div style='height:36px;'></div>", unsafe_allow_html=True)
+                    continue
+                colour = mcolors.to_hex(cmap(norm(delta)))
+                delta_formatted = f"{delta:+.3f}"
+                cols[i].markdown(
+                    f"""
+                    <div style="
+                        background-color: {colour};
+                        border: 1px solid #444;
+                        border-radius: 3px;
+                        height: 36px;
+                        line-height: 1.2;
+                        text-align: center;
+                        font-size: 11px;
+                        font-weight: bold;
+                        color: black;
+                        padding-top: 2px;
+                    ">
+                        {well_id}<br><span style='font-weight: normal'>{delta_formatted}</span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+    st.plotly_chart(fig, use_container_width=True)
