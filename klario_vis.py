@@ -8,9 +8,11 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.cm as cm
 from matplotlib.colors import LinearSegmentedColormap
+import io
 from io import StringIO
 import re
 import copy
+
 
 st.set_page_config(layout="wide")
 st.title("ClarioSTAR Visualisation Portal v. 2.0")
@@ -607,6 +609,49 @@ if show_thresh_analysis:
                         mode="lines",
                         line=dict(dash="dot", width=2)
                     ))
+
+        # Store AUC results for this file
+        auc_results = []
+
+        for threshold in thresholds:
+            thresh_val = baseline * threshold
+            cross_idx = np.argmax(mean_vals.values >= thresh_val)
+            cross_time = time_hours[cross_idx] if cross_idx < len(time_hours) else None
+
+            if cross_time is None:
+                continue
+
+            valid_mask = time_hours <= cross_time
+            control_auc = np.trapz(mean_vals[valid_mask], time_hours[valid_mask])
+
+            for well in candidate_wells:
+                if well not in df.columns:
+                    continue
+                curve = df[well]
+                well_auc = np.trapz(curve[valid_mask], time_hours[valid_mask])
+                delta_auc = well_auc - control_auc
+                auc_results.append({
+                    "Well": well,
+                    "Threshold (x growth)": threshold,
+                    "Crossing Time (hr)": round(cross_time, 3),
+                    "AUC (Well)": round(well_auc, 4),
+                    "AUC (Control)": round(control_auc, 4),
+                    "ΔAUC": round(delta_auc, 4)
+                })
+
+        # Export to CSV and offer download
+        if auc_results:
+            auc_df = pd.DataFrame(auc_results)
+            csv_buffer = io.StringIO()
+            auc_df.to_csv(csv_buffer, index=False)
+            st.download_button(
+                label=f"📥 Download ΔAUC CSV for {plate}",
+                data=csv_buffer.getvalue(),
+                file_name=f"{plate}_deltaAUC_thresholds.csv",
+                mime="text/csv",
+                key=f"download_csv_{plate}"
+            )   
+
 
         st.plotly_chart(fig, use_container_width=True)
 
